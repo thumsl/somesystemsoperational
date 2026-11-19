@@ -1,5 +1,4 @@
 import { BRAND, HISTORY_DAYS, PUBLIC_URL, RATE_LIMIT_PER_SEC, SELF_SLUG, UMAMI_SCRIPT } from './config.js';
-import { CATEGORY_SLUG } from './providers.js';
 import { crumbs, esc, layout } from './render.js';
 
 const EXAMPLE = `{
@@ -32,7 +31,7 @@ const EXAMPLE = `{
 }`;
 
 export function renderAbout(summary) {
-  const categories = summary.categories.map((c) => `<a href="/status/${CATEGORY_SLUG.get(c.key)}">${esc(c.name)}</a>`).join(', ');
+  const categories = summary.categories.map((c) => `<a href="/status/${c.slug}">${esc(c.name)}</a>`).join(', ');
   const analytics = UMAMI_SCRIPT
     ? '<li>Page views are counted with Umami, an open source analytics tool running on our own server. It sets no cookies and does not store IP addresses.</li>'
     : '';

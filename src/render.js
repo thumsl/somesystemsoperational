@@ -1,5 +1,4 @@
 import { BRAND, DONATE, GOOGLE_SITE_VERIFICATION, HISTORY_DAYS, POLL_INTERVAL_MS, PUBLIC_URL, TAGLINE, UMAMI_SCRIPT, UMAMI_WEBSITE_ID } from './config.js';
-import { CATEGORY_SLUG } from './providers.js';
 import { DAY, historyWindow, impactfulIncidents, providerDays } from './history.js';
 import { clip } from './normalize.js';
 
@@ -22,7 +21,7 @@ const plural = (n, one, many = `${one}s`) => `${n.toLocaleString('en-US')} ${n =
 const and = new Intl.ListFormat('en', { type: 'conjunction' });
 const or = new Intl.ListFormat('en', { type: 'disjunction' });
 const absolute = (path) => PUBLIC_URL + path;
-const categoryPath = (key) => `/status/${CATEGORY_SLUG.get(key)}`;
+const isCalm = (status) => status === 'operational' || status === 'maintenance' || status === 'pending';
 
 function fmtUtc(iso) {
   if (!iso) return '';
@@ -43,10 +42,11 @@ export function duration(ms) {
 
 const time = (iso, mode = 'rel') => (iso ? `<time datetime="${esc(iso)}" data-${mode}>${esc(fmtUtc(iso))}</time>` : '');
 
+const TRIANGLE = '<path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.5v.5"/>';
 const ICON = {
   ok: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
-  warn: '<path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.5v.5"/>',
-  partial: '<path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.5v.5"/>',
+  warn: TRIANGLE,
+  partial: TRIANGLE,
   bad: '<circle cx="12" cy="12" r="9"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/>',
   maint: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   pending: '<circle cx="12" cy="12" r="9"/><path d="M8 12h.01M12 12h.01M16 12h.01"/>',
@@ -103,7 +103,7 @@ export function layout({ title, description, path, body, level, summary, data = 
   const own = summary.self;
   const canonical = PUBLIC_URL && index ? `<link rel="canonical" href="${esc(absolute(path))}">\n<meta property="og:url" content="${esc(absolute(path))}">` : '';
   const verify = GOOGLE_SITE_VERIFICATION ? `<meta name="google-site-verification" content="${esc(GOOGLE_SITE_VERIFICATION)}">` : '';
-  const browse = summary.categories.map((c) => `<a href="${categoryPath(c.key)}">${esc(c.name)}</a>`).join(' · ');
+  const browse = summary.categories.map((c) => `<a href="/status/${c.slug}">${esc(c.name)}</a>`).join(' · ');
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -161,24 +161,22 @@ function subscribeText(summary) {
   return `<div id="live-subscribe" data-live><p><strong>Subscriptions are paused.</strong></p><p>${rate}</p></div>`;
 }
 
+const incidentLink = (i) => (i.url ? `<a href="${esc(i.url)}" target="_blank" rel="noopener nofollow">${esc(i.name)}</a>` : esc(i.name));
+
 function incidentCard({ state, incident }) {
   const latest = incident.updates[0];
-  const title = incident.url
-    ? `<a href="${esc(incident.url)}" target="_blank" rel="noopener nofollow">${esc(incident.name)}</a>`
-    : esc(incident.name);
   return `<article class="incident i-${incident.impact}">
   <div class="incident-meta"><a class="svc" href="/${esc(state.provider.slug)}">${esc(state.provider.name)}</a><span class="chip c-${incident.impact}">${IMPACT_LABEL[incident.impact]}</span><span class="muted">${incident.status ? `${esc(incident.status)} · ` : ''}started ${time(incident.startedAt)}</span></div>
-  <h3>${title}</h3>
+  <h3>${incidentLink(incident)}</h3>
   ${latest?.body ? `<p class="update">${esc(clip(latest.body, 280))}</p>` : ''}
 </article>`;
 }
 
 function serviceRow({ state, days }, win) {
   const { provider, status } = state;
-  const ok = status === 'operational' || status === 'maintenance' || status === 'pending';
   const label = state.history ? `${provider.name}: incident history for the last ${win.days} days` : `${provider.name}: no incident history published`;
   const names = [provider.name, ...(provider.aka ?? [])].join(' ').toLowerCase();
-  return `<a class="row" href="/${esc(provider.slug)}" data-name="${esc(names)}" data-ok="${ok ? 1 : 0}">
+  return `<a class="row" href="/${esc(provider.slug)}" data-name="${esc(names)}" data-ok="${isCalm(status) ? 1 : 0}">
   <span class="name"><span class="dot s-${status}"></span>${esc(provider.name)}</span>
   ${bar(days.levels, win, { c: days.counts }, label)}
   <span class="status s-${status}">${STATUS_LABEL[status]}</span>
@@ -265,7 +263,7 @@ export function renderCategory(category, summary) {
   const { name, rows, headline } = category;
   const { win } = summary;
   const names = rows.map((r) => r.state.provider.name);
-  const troubled = rows.filter((r) => !['operational', 'maintenance', 'pending'].includes(r.state.status)).map((r) => r.state.provider.name);
+  const troubled = rows.filter((r) => !isCalm(r.state.status)).map((r) => r.state.provider.name);
   const incidents = summary.incidents.filter((i) => i.state.provider.category === category.key);
 
   const body = `<main>
@@ -285,12 +283,12 @@ ${incidents.length ? `<section class="block"><h2>Active incidents <span class="c
   return layout({
     title: `${name} status: is ${or.format(names.slice(0, 3))} down? — ${BRAND}`,
     description: `${category.operational} of ${rows.length} ${name} services are operational right now. Live status and outage history for ${rows.length > 6 ? `${names.slice(0, 6).join(', ')} and ${rows.length - 6} more` : and.format(names)}.`,
-    path: categoryPath(category.key),
+    path: `/status/${category.slug}`,
     level: headline.level,
     body,
     summary,
     data: [
-      crumbs([BRAND, '/'], [name, categoryPath(category.key)]),
+      crumbs([BRAND, '/'], [name, `/status/${category.slug}`]),
       { '@type': 'ItemList', name: `${name} status`, itemListElement: rows.map((r, i) => ({ '@type': 'ListItem', position: i + 1, name: r.state.provider.name, url: absolute(`/${r.state.provider.slug}`) })) },
     ],
   });
@@ -306,7 +304,7 @@ const VERDICT = {
   pending: (n) => ['Checking', `The first read of the ${n} status page is still in progress`],
 };
 
-function questions(state, host) {
+function questions(state, host, last) {
   const { provider, status } = state;
   const name = provider.name;
   const aka = provider.aka ?? [];
@@ -317,7 +315,6 @@ function questions(state, host) {
   const list = [[`Is ${name} down right now?`, `${word}. ${detail}${cause}.${doubt}`]];
 
   if (state.history) {
-    const last = impactfulIncidents(state).sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
     const ended = last?.resolvedAt ? `lasted ${duration(Math.max(0, Date.parse(last.resolvedAt) - Date.parse(last.startedAt)))}` : 'is still open';
     list.push([
       `When was the last ${name} outage?`,
@@ -387,17 +384,16 @@ export function renderDetail(state, summary) {
         .map(
           (i) => `<article class="incident i-${i.impact}">
   <div class="incident-meta"><span class="chip c-${i.impact}">${IMPACT_LABEL[i.impact]}</span><span class="muted">${i.status ? `${esc(i.status)} · ` : ''}started ${time(i.startedAt)}</span></div>
-  <h3>${i.url ? `<a href="${esc(i.url)}" target="_blank" rel="noopener nofollow">${esc(i.name)}</a>` : esc(i.name)}</h3>
+  <h3>${incidentLink(i)}</h3>
   ${updatesList(i)}
 </article>`,
         )
         .join('')}</section>`
     : '';
 
-  const past = impactfulIncidents(state)
-    .filter((i) => i.resolvedAt && Date.parse(i.resolvedAt) >= win.start)
-    .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
-  const inWindow = impactfulIncidents(state).filter((i) => (i.resolvedAt ? Date.parse(i.resolvedAt) : now) >= win.start).length;
+  const all = impactfulIncidents(state).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  const past = all.filter((i) => i.resolvedAt && Date.parse(i.resolvedAt) >= win.start);
+  const inWindow = all.filter((i) => (i.resolvedAt ? Date.parse(i.resolvedAt) : now) >= win.start).length;
   const partial = state.coverageStart && Date.parse(state.coverageStart) > win.start;
 
   const history = state.history
@@ -416,7 +412,7 @@ export function renderDetail(state, summary) {
         .slice(0, 60)
         .map(
           (i) =>
-            `<div class="past"><span class="dot i-dot-${i.impact}"></span><div><div class="past-name">${i.url ? `<a href="${esc(i.url)}" target="_blank" rel="noopener nofollow">${esc(i.name)}</a>` : esc(i.name)}</div><div class="muted">${time(i.startedAt, 'abs')} · lasted ${esc(duration(Math.max(0, Date.parse(i.resolvedAt) - Date.parse(i.startedAt))))}</div></div><span class="chip c-${i.impact}">${IMPACT_LABEL[i.impact]}</span></div>`,
+            `<div class="past"><span class="dot i-dot-${i.impact}"></span><div><div class="past-name">${incidentLink(i)}</div><div class="muted">${time(i.startedAt, 'abs')} · lasted ${esc(duration(Math.max(0, Date.parse(i.resolvedAt) - Date.parse(i.startedAt))))}</div></div><span class="chip c-${i.impact}">${IMPACT_LABEL[i.impact]}</span></div>`,
         )
         .join('')}</div></section>`
     : '';
@@ -424,9 +420,9 @@ export function renderDetail(state, summary) {
   const category = summary.categories.find((c) => c.key === provider.category);
   const siblings = (category?.rows ?? []).filter((r) => r.state !== state).slice(0, 12);
   const related = siblings.length
-    ? `<p class="related">More in ${esc(category.name)}: ${siblings.map((r) => `<a href="/${esc(r.state.provider.slug)}">${esc(r.state.provider.name)}</a>`).join(', ')}${category.rows.length - 1 > siblings.length ? `, <a href="${categoryPath(category.key)}">all ${category.rows.length}</a>` : ''}</p>`
+    ? `<p class="related">More in ${esc(category.name)}: ${siblings.map((r) => `<a href="/${esc(r.state.provider.slug)}">${esc(r.state.provider.name)}</a>`).join(', ')}${category.rows.length - 1 > siblings.length ? `, <a href="/status/${category.slug}">all ${category.rows.length}</a>` : ''}</p>`
     : '';
-  const qa = provider.self ? [] : questions(state, host);
+  const qa = provider.self ? [] : questions(state, host, all[0]);
   const faq = qa.length
     ? `<section class="block faq"><h2>Is ${esc(provider.name)} down?</h2>${qa.map(([q, a], i) => `${i ? `<h3>${esc(q)}</h3>` : ''}<p>${esc(a)}</p>`).join('')}${related}</section>`
     : '';
@@ -437,7 +433,7 @@ export function renderDetail(state, summary) {
   const body = `<main>
 <a class="back" href="/">← All services</a>
 <div class="detail-head">
-  <div><h1>${esc(provider.name)}</h1><p class="muted">${category ? `<a href="${categoryPath(category.key)}">${esc(category.name)}</a>` : ''}</p></div>
+  <div><h1>${esc(provider.name)}</h1><p class="muted">${category ? `<a href="/status/${category.slug}">${esc(category.name)}</a>` : ''}</p></div>
   ${provider.self ? '<span class="btn is-static">You are looking at it</span>' : `<a class="btn" href="${esc(provider.page)}" target="_blank" rel="noopener">Official status page ↗</a>`}
 </div>
 <div id="live-detail" data-live>
@@ -452,7 +448,7 @@ ${faq}
 </div>
 </main>`;
 
-  const steps = [[BRAND, '/'], category && [category.name, categoryPath(category.key)], [provider.name, `/${provider.slug}`]].filter(Boolean);
+  const steps = [[BRAND, '/'], category && [category.name, `/status/${category.slug}`], [provider.name, `/${provider.slug}`]].filter(Boolean);
   return layout({
     title: provider.self ? `${provider.name} status — ${BRAND}` : `Is ${label} down? Live status and outage history — ${BRAND}`,
     description: provider.self

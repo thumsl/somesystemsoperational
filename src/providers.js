@@ -310,6 +310,7 @@ const AKA = {
 };
 for (const p of list) p.aka = AKA[p.slug] ?? [];
 
+export const CATEGORY_NAME = new Map(CATEGORIES);
 export const CATEGORY_SLUG = new Map(CATEGORIES.map(([key, name]) => [key, name.toLowerCase().replace(/[^a-z0-9]+/g, '-')]));
 export const PROVIDERS = list;
 export const PROVIDERS_BY_SLUG = new Map(list.map((p) => [p.slug, p]));

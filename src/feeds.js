@@ -1,10 +1,9 @@
 import { BRAND, PUBLIC_URL, TAGLINE } from './config.js';
 import { impactfulIncidents } from './history.js';
 import { clip } from './normalize.js';
-import { CATEGORIES } from './providers.js';
+import { CATEGORY_NAME } from './providers.js';
 import { esc } from './render.js';
 
-const CATEGORY_NAME = new Map(CATEGORIES);
 const touched = (i) => i.updatedAt || i.resolvedAt || i.startedAt;
 
 export function sitemap(summary) {
