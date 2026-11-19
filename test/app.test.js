@@ -10,6 +10,7 @@ import { bucketKey, clientIp, RateLimiter } from '../src/ratelimit.js';
 import { renderCategory, renderDetail, renderHome } from '../src/render.js';
 import { SelfMonitor } from '../src/self.js';
 import { buildSummary, headline } from '../src/summary.js';
+import { client } from '../src/usage.js';
 
 const NOW = Date.parse('2026-11-18T12:00:00Z');
 const quiet = { info() {}, warn() {}, error() {} };
@@ -151,4 +152,11 @@ test('the site opens and closes its own incidents', () => {
   const fixed = self.tick();
   assert.equal(fixed.status, 'operational');
   assert.ok(fixed.history[0].resolvedAt);
+});
+
+test('API callers are labelled by what they are, not who', () => {
+  const chrome = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36';
+  assert.deepEqual(client(chrome), { userAgent: chrome });
+  assert.deepEqual(client('python-requests/2.32.3'), { browser: 'python-requests', os: '', device: '' });
+  assert.equal(client('').browser, 'unknown');
 });

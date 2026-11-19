@@ -14,6 +14,7 @@ import { bucketKey, clientIp, isLoopback, RateLimiter } from './ratelimit.js';
 import { renderCategory, renderDetail, renderFavicon, renderHome, renderNotFound, setAssetVersion } from './render.js';
 import { SelfMonitor } from './self.js';
 import { buildSummary } from './summary.js';
+import { apiHit } from './usage.js';
 
 const STATS = UMAMI_SCRIPT ? ` ${new URL(UMAMI_SCRIPT).origin}` : '';
 const SECURITY_HEADERS = {
@@ -197,7 +198,10 @@ function handle(req, res) {
   if (tidy !== path) return redirect(res, tidy + url.slice(path.length));
 
   const found = STATIC.get(path) ?? ROUTES.get(path)?.();
-  if (found) return respond(req, res, 200, found);
+  if (found) {
+    if (path.startsWith('/api/v2/')) apiHit(req, path, ip);
+    return respond(req, res, 200, found);
+  }
 
   if (path.startsWith('/status/')) {
     const slug = path.slice(8);

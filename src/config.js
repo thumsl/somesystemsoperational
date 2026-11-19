@@ -11,6 +11,7 @@ export const RATE_LIMIT_PER_SEC = Number(env.RATE_LIMIT_PER_SEC || 1.5);
 export const PUBLIC_URL = (env.PUBLIC_URL || '').replace(/\/+$/, '');
 export const UMAMI_SCRIPT = env.UMAMI_SCRIPT || '';
 export const UMAMI_WEBSITE_ID = env.UMAMI_WEBSITE_ID || '';
+export const UMAMI_API_WEBSITE_ID = env.UMAMI_API_WEBSITE_ID || '';
 export const GOOGLE_SITE_VERIFICATION = env.GOOGLE_SITE_VERIFICATION || '';
 export const INDEXNOW_KEY = /^[a-f0-9]{8,128}$/.test(env.INDEXNOW_KEY || '') ? env.INDEXNOW_KEY : '';
 export const SOURCE_URL = env.SOURCE_URL ?? 'https://github.com/thumsl/somesystemsoperational';

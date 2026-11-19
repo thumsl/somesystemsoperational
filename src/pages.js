@@ -1,4 +1,4 @@
-import { BRAND, HISTORY_DAYS, PUBLIC_URL, RATE_LIMIT_PER_SEC, SELF_SLUG, SOURCE_URL, UMAMI_SCRIPT } from './config.js';
+import { BRAND, HISTORY_DAYS, PUBLIC_URL, RATE_LIMIT_PER_SEC, SELF_SLUG, SOURCE_URL, UMAMI_API_WEBSITE_ID, UMAMI_SCRIPT } from './config.js';
 import { crumbs, esc, layout } from './render.js';
 
 const EXAMPLE = `{
@@ -35,6 +35,9 @@ export function renderAbout(summary) {
   const analytics = UMAMI_SCRIPT
     ? '<li>Page views are counted with Umami, an open source analytics tool running on our own server. It sets no cookies and does not store IP addresses.</li>'
     : '';
+  const apiUsage = UMAMI_SCRIPT && UMAMI_API_WEBSITE_ID
+    ? '<li>API calls are counted there too: the endpoint, the kind of client and the referring site. To tell callers apart it gets a one-way hash of the address that changes at every restart, never the address itself.</li>'
+    : '';
   const description = `${BRAND} reads the official status pages of ${summary.total} major internet services every two minutes and shows them on one page. How it works, what it tracks and what it knows about you.`;
 
   const body = `<main class="prose">
@@ -56,7 +59,7 @@ export function renderAbout(summary) {
 <h2>Privacy</h2>
 <ul>
 <li>No accounts, no cookies, no ads.</li>
-${analytics}
+${analytics}${apiUsage}
 <li>The server sees your IP address, as any web server does, and uses it to limit how fast one visitor can send requests.</li>
 <li>Nothing is sold or shared with anyone.</li>
 </ul>
