@@ -21,6 +21,9 @@ rebuilt from the providers' own feeds within a minute of starting.
 | `PORT` | `3000` | |
 | `PUBLIC_URL` | (none) | Public origin, used for canonical links and in the bot user agent |
 | `BRAND_NAME` | `Some Systems Operational` | Site name |
+| `DATA_DIR` | (none; `/data` in the image) | Where the site keeps its own incident history. Mount a volume to keep it across deploys |
+| `CLIENT_IP_HEADER` | `x-forwarded-for` | Header with the visitor's address, used for rate limiting. Behind Cloudflare: `cf-connecting-ip` |
+| `RATE_LIMIT_BURST` / `RATE_LIMIT_PER_SEC` | `90` / `1.5` | Requests one address may make in a burst, and per second after that |
 | `POLL_INTERVAL_MS` | `120000` | How often every status page is read |
 | `HISTORY_INTERVAL_MS` | `1200000` | How often incident history is refreshed |
 
@@ -35,6 +38,23 @@ rebuilt from the providers' own feeds within a minute of starting.
   internet-wide numbers.
 - `src/render.js` and `src/server.js` serve the pages, plus a Statuspage-style API at
   `/api/v2/summary.json` and `/api/v2/status.json`.
+
+## It tracks itself
+
+The site is one of the services it lists (`src/self.js`). That status is measured, not
+claimed: it turns degraded when too many status pages cannot be read, when the data goes
+stale, when the server is slow, or when rate limiting is turning away a flood. Those
+incidents open and close on their own and are written to `DATA_DIR`. A gap in the
+heartbeat kept there is recorded as downtime on the next start.
+
+## Staying up
+
+Every page is rendered at most once every few seconds, compressed once and served from
+memory, so a request costs a map lookup. Each address gets a token bucket (429 beyond
+it), query strings are ignored, and slow or oversized requests are dropped. That holds
+against floods a single server can absorb. Against a real DDoS, put a CDN in front: the
+cache headers already let one serve stale pages while the origin is unreachable, and no
+URL on the site needs a query string, so the CDN can ignore them too.
 
 ## Adding a service
 
