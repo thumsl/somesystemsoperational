@@ -1,11 +1,4 @@
-/** Per-client token buckets. Everything served is a cached buffer, so this only has to stop floods. */
-
 export class RateLimiter {
-  /**
-   * @param capacity      requests a client may make in one burst
-   * @param refillPerSec  sustained requests per second after the burst
-   * @param maxKeys       clients tracked at once; the least recently seen are dropped beyond this
-   */
   constructor({ capacity = 90, refillPerSec = 1.5, maxKeys = 100_000, now = Date.now } = {}) {
     this.capacity = capacity;
     this.refillPerSec = refillPerSec;
@@ -14,13 +7,12 @@ export class RateLimiter {
     this.buckets = new Map();
   }
 
-  /** True if the client may proceed. */
   take(key) {
     const now = this.now();
     let bucket = this.buckets.get(key);
     if (bucket) {
       bucket.tokens = Math.min(this.capacity, bucket.tokens + ((now - bucket.at) / 1000) * this.refillPerSec);
-      this.buckets.delete(key); // re-insert below: Map order then doubles as least-recently-seen order
+      this.buckets.delete(key); // reinserted below so the Map stays ordered by last seen
     } else {
       bucket = { tokens: this.capacity, at: now };
       if (this.buckets.size >= this.maxKeys) this.buckets.delete(this.buckets.keys().next().value);
@@ -32,24 +24,21 @@ export class RateLimiter {
     return true;
   }
 
-  /** Seconds until the client has a token again. */
   retryAfter(key) {
     const bucket = this.buckets.get(key);
     return bucket ? Math.max(1, Math.ceil((1 - bucket.tokens) / this.refillPerSec)) : 1;
   }
 
-  /** Forget clients whose bucket has refilled; call now and then to keep the map small. */
   prune() {
     const now = this.now();
     const idle = (this.capacity / this.refillPerSec) * 1000;
     for (const [key, bucket] of this.buckets) {
-      if (now - bucket.at < idle) break; // the rest were seen more recently
+      if (now - bucket.at < idle) break;
       this.buckets.delete(key);
     }
   }
 }
 
-/** One bucket per IPv4 address or per IPv6 /64, since a single host controls a whole /64. */
 export function bucketKey(ip) {
   const address = String(ip || '').trim().replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/i, '');
   if (!address.includes(':')) return address || 'unknown';
@@ -63,15 +52,11 @@ export function bucketKey(ip) {
   return groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, '')).join(':');
 }
 
-/**
- * The address to rate limit by. Behind a proxy the socket address is the proxy's, so the
- * address comes from a header: by default the last entry of X-Forwarded-For, which is the
- * one our own proxy appended and a client cannot forge.
- */
 export function clientIp(req, header = 'x-forwarded-for') {
   const value = req.headers[header];
   const raw = Array.isArray(value) ? value[value.length - 1] : value;
   if (raw) {
+    // the last entry is the one our own proxy added, so it can't be spoofed
     const last = String(raw).split(',').pop().trim();
     if (last) return last;
   }

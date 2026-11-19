@@ -1,7 +1,3 @@
-/**
- * Atlassian Statuspage (`/api/v2/summary.json`, `/api/v2/incidents.json`).
- * incident.io status pages serve the same API, so they use this adapter too.
- */
 import { components, incident, impactToStatus, worstStatus, clip, plainText } from '../normalize.js';
 
 const INDICATOR = { none: 'operational', minor: 'degraded', major: 'partial_outage', critical: 'major_outage', maintenance: 'maintenance' };
@@ -61,8 +57,7 @@ export function parseIncidents(json, pageUrl) {
   const list = Array.isArray(json?.incidents) ? json.incidents : null;
   if (!list) throw new Error('not a Statuspage incident list');
   const history = list.map((i) => toIncident(i, pageUrl)).filter((i) => i.startedAt);
-  // The API returns one page of the most recent incidents (50 on Statuspage, 25 on
-  // incident.io). A full page means older incidents exist that we cannot see.
+  // a full page means there are older incidents we can't see
   const fullPage = list.length === 25 || list.length >= 50;
   const oldest = history.reduce((min, i) => (i.startedAt < min ? i.startedAt : min), history[0]?.startedAt ?? null);
   return { history, coverageStart: fullPage ? oldest : null };

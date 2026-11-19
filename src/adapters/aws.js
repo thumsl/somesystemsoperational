@@ -1,15 +1,10 @@
-/**
- * AWS Health Dashboard public feeds.
- * `currentevents` lists open events (UTF-16 JSON); `historyevents.json` holds the past year by service.
- */
 import { incident, impactToStatus, worstStatus } from '../normalize.js';
 
 const CURRENT = 'https://health.aws.amazon.com/public/currentevents';
 const HISTORY = 'https://history-events-us-west-2-prod.s3.amazonaws.com/historyevents.json';
 const PAGE = 'https://health.aws.amazon.com/health/status';
 
-// AWS event status: 1 = informational, 2 = degradation, 3 = disruption. A disruption is
-// always scoped to a service or region, so it maps to a partial outage of AWS as a whole.
+// 1 informational, 2 degradation, 3 disruption
 const IMPACT = { 1: 'minor', 2: 'minor', 3: 'major' };
 
 function toIncident(raw, resolved) {

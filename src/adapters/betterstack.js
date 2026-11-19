@@ -1,4 +1,3 @@
-/** Better Stack status pages (`/index.json`, a JSON:API document with current state and recent reports). */
 import { components, incident, worstStatus } from '../normalize.js';
 
 const STATE = { operational: 'operational', degraded: 'degraded', downtime: 'major_outage', maintenance: 'maintenance' };
@@ -22,7 +21,7 @@ export function parseIndex(json, pageUrl, now = Date.now()) {
   for (const report of byType('status_report')) {
     const a = report.attributes || {};
     const start = Date.parse(a.starts_at);
-    if (Number.isNaN(start) || start > now) continue; // scheduled for later
+    if (Number.isNaN(start) || start > now) continue;
     const own = (report.relationships?.status_updates?.data || [])
       .map((ref) => updates.get(ref.id))
       .filter(Boolean)
@@ -31,7 +30,6 @@ export function parseIndex(json, pageUrl, now = Date.now()) {
     const plannedEnd = a.ends_at ? Date.parse(a.ends_at) : null;
     const resolved = a.aggregate_state === 'resolved' || a.aggregate_state === 'operational' || (plannedEnd != null && plannedEnd <= now);
 
-    // A resolved report no longer says how bad it was; the updates still do.
     const seen = [a.aggregate_state, ...(a.affected_resources || []).map((r) => r.status), ...own.flatMap((u) => (u.affected_resources || []).map((r) => r.status))];
     const impact = isMaintenance ? 'maintenance' : seen.includes('downtime') ? 'major' : 'minor';
 
@@ -52,7 +50,6 @@ export function parseIndex(json, pageUrl, now = Date.now()) {
 
   const allDown = resources.length > 0 && resources.every((r) => r.status === 'major_outage');
   let status = STATE[page.aggregate_state] ?? worstStatus(resources.map((r) => r.status));
-  // "downtime" on the page means at least one resource is down, which is a partial outage unless all are.
   if (status === 'major_outage' && !allDown) status = 'partial_outage';
 
   const oldest = history.reduce((min, i) => (i.startedAt < min ? i.startedAt : min), history[0]?.startedAt ?? null);
@@ -61,7 +58,6 @@ export function parseIndex(json, pageUrl, now = Date.now()) {
     description: '',
     incidents,
     history,
-    // The document only carries recent reports, so history is trusted from the oldest one on.
     coverageStart: oldest ?? new Date(now).toISOString(),
     ...components(resources),
   };

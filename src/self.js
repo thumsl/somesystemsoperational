@@ -1,16 +1,9 @@
-/**
- * This site, tracked like any other service, from what it can actually measure about
- * itself: whether it can read the status pages, how fresh its data is, how busy the server
- * is and how much traffic it is turning away. Incidents open and close on their own and are
- * kept on disk, so the history survives restarts and shows the restarts that were outages.
- */
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { components, impactToStatus, worstStatus } from './normalize.js';
 
 const DAY = 86_400_000;
 const KEEP_MS = 100 * DAY;
-/** A gap this long between heartbeats means the process was not running. Rolling deploys overlap, so they leave none. */
 const DOWN_GAP_MS = 120_000;
 const TRAFFIC_WINDOW_MS = 60_000;
 const IMPACT = ['none', 'minor', 'major', 'critical'];
@@ -26,10 +19,6 @@ const span = (ms) => {
 const iso = (ms) => new Date(ms).toISOString();
 
 export class SelfMonitor {
-  /**
-   * @param file            where history is kept; null keeps it in memory only
-   * @param pollIntervalMs  how often a round of checks is expected to finish
-   */
   constructor({ file = null, pollIntervalMs, now = Date.now, log = console } = {}) {
     this.file = file;
     this.pollIntervalMs = pollIntervalMs;
@@ -40,7 +29,7 @@ export class SelfMonitor {
     this.incidents = [];
     this.streaks = {};
     this.cycle = null;
-    this.traffic = []; // [at, served, rejected] per tick
+    this.traffic = [];
     this.pending = { served: 0, rejected: 0 };
     this.loopDelayMs = 0;
     this.persistent = false;
@@ -52,15 +41,12 @@ export class SelfMonitor {
     const now = this.bootedAt;
     try {
       mkdirSync(dirname(this.file), { recursive: true });
-    } catch {
-      // read-only or missing parent: the write below reports it
-    }
+    } catch {}
     try {
       const saved = JSON.parse(readFileSync(this.file, 'utf8'));
       this.since = Number(saved.since) || now;
       this.incidents = Array.isArray(saved.incidents) ? saved.incidents : [];
       const heartbeat = Number(saved.heartbeat) || 0;
-      // Whatever was open when the last process stopped ended with it.
       for (const i of this.incidents) {
         if (!i.resolvedAt) this.close(i, heartbeat || now, 'Closed by a restart of the server.');
       }
@@ -99,9 +85,6 @@ export class SelfMonitor {
     }
   }
 
-  // ── What the rest of the app reports ──────────────────────────────────────────────────
-
-  /** A finished round of checks. `failed` holds the names of status pages that did not answer. */
   recordCycle({ total, failed, durationMs }) {
     this.cycle = { at: this.now(), total, failed, durationMs };
   }
@@ -114,8 +97,6 @@ export class SelfMonitor {
     this.loopDelayMs = ms;
   }
 
-  // ── Conditions ────────────────────────────────────────────────────────────────────────
-
   trafficInWindow() {
     let served = 0;
     let rejected = 0;
@@ -126,7 +107,6 @@ export class SelfMonitor {
     return { served, rejected };
   }
 
-  /** Each condition: how bad it is right now (0-3) and how to describe it. */
   conditions() {
     const now = this.now();
     const out = {};
@@ -190,7 +170,6 @@ export class SelfMonitor {
     incident.updates = [{ at: iso(at), status: 'Resolved', body }, ...incident.updates].slice(0, 8);
   }
 
-  /** Re-evaluate every condition, open or close incidents, and write the heartbeat. Call every few seconds. */
   tick() {
     const now = this.now();
     this.traffic.push([now, this.pending.served, this.pending.rejected]);
@@ -221,7 +200,6 @@ export class SelfMonitor {
       } else if (active && streak.good >= cond.closeAfter) {
         this.close(active, now, cond.resolved);
       } else if (active && cond.level > 0) {
-        // Keep the latest numbers on top, and remember the worst it got.
         const worse = cond.level > IMPACT.indexOf(active.impact);
         if (worse) active.impact = IMPACT[cond.level];
         const latest = active.updates[0];
@@ -237,7 +215,6 @@ export class SelfMonitor {
     return this.snapshot();
   }
 
-  /** The same shape every adapter returns. */
   snapshot() {
     const now = this.now();
     const open = this.incidents.filter((i) => !i.resolvedAt);

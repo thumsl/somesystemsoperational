@@ -1,4 +1,3 @@
-/** Server-side HTML. Everything that comes from a provider goes through esc(). */
 import { BRAND, HISTORY_DAYS, PUBLIC_URL, TAGLINE } from './config.js';
 import { CATEGORIES } from './providers.js';
 import { DAY, historyWindow, impactfulIncidents, providerDays } from './history.js';
@@ -39,7 +38,6 @@ export function duration(ms) {
   return h % 24 ? `${d}d ${h % 24}h` : `${d}d`;
 }
 
-/** <time> the client upgrades to "3h ago" (data-rel) or to the reader's time zone (data-abs). */
 const time = (iso, mode = 'rel') => (iso ? `<time datetime="${esc(iso)}" data-${mode}>${esc(fmtUtc(iso))}</time>` : '');
 
 const ICON = {
@@ -56,7 +54,6 @@ const icon = (level) =>
 const LOGO =
   '<svg class="logo" viewBox="0 0 26 22" aria-hidden="true"><rect class="l0" x="0" y="0" width="5" height="22" rx="1.5"/><rect class="l0" x="7" y="0" width="5" height="22" rx="1.5"/><rect class="l1" x="14" y="0" width="5" height="22" rx="1.5"/><rect class="l3" x="21" y="0" width="5" height="22" rx="1.5"/></svg>';
 
-/** A row of day bars: one path per run of equal days keeps 250 of these cheap to send and draw. */
 function bar(levels, win, data, label) {
   let paths = '';
   for (let i = 0; i < levels.length; ) {
@@ -113,7 +110,6 @@ ${body}
 </html>`;
 }
 
-// Filled in by the server once the assets are hashed, and per render for the popover.
 let ASSET_VERSION = 'dev';
 export const setAssetVersion = (v) => (ASSET_VERSION = v);
 

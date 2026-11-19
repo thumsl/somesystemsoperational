@@ -1,26 +1,19 @@
-/** Pure functions that turn incident lists into day-by-day history and internet-wide statistics. */
 import { IMPACT_RANK } from './normalize.js';
 
 export const DAY = 86_400_000;
 
-/** The last `days` UTC days, ending with today. */
 export function historyWindow(now, days) {
   const end = Math.floor(now / DAY) * DAY + DAY;
   return { start: end - days * DAY, end, days };
 }
 
-/** Past and current incidents of one provider that had real impact, without duplicates. */
 export function impactfulIncidents(state) {
   const byId = new Map();
   for (const i of state.history || []) byId.set(i.id, i);
-  for (const i of state.incidents || []) byId.set(i.id, i); // the live copy is the fresher one
+  for (const i of state.incidents || []) byId.set(i.id, i);
   return [...byId.values()].filter((i) => IMPACT_RANK[i.impact] > 0 && i.startedAt);
 }
 
-/**
- * One entry per day of the window for a provider.
- * level: -1 no data, 0 no incident, 1 minor, 2 major, 3 critical. count: incidents touching that day.
- */
 export function providerDays(state, win, now) {
   const levels = new Array(win.days).fill(-1);
   const counts = new Array(win.days).fill(0);
@@ -46,7 +39,6 @@ export function providerDays(state, win, now) {
   return { levels, counts };
 }
 
-/** The same window for the internet as a whole: how many services had an incident each day. */
 export function internetDays(perProvider, win) {
   const levels = [];
   const incidents = [];
@@ -71,10 +63,6 @@ export function internetDays(perProvider, win) {
   return { levels, incidents, affected, covered };
 }
 
-/**
- * How much of the window passed with no open incident anywhere ("all green"),
- * and the longest stretch of it.
- */
 export function quietTime(states, win, now) {
   const intervals = [];
   for (const state of states) {
@@ -112,7 +100,6 @@ export function quietTime(states, win, now) {
   return { fraction: total > 0 ? Math.max(0, 1 - busy / total) : 0, longestMs: longest, longestEnd };
 }
 
-/** Incidents that started within the last `ms`, across all providers. */
 export function startedWithin(states, now, ms) {
   let n = 0;
   for (const state of states) {

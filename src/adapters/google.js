@@ -1,10 +1,9 @@
-/** Google's status dashboards (Cloud, Workspace, Firebase) all publish the same `incidents.json`. */
 import { incident, impactToStatus, worstStatus } from '../normalize.js';
 
 function impactOf(raw) {
   if (raw.status_impact === 'SERVICE_OUTAGE') return 'critical';
   if (raw.status_impact === 'SERVICE_DISRUPTION') return raw.severity === 'high' ? 'major' : 'minor';
-  return 'none'; // SERVICE_INFORMATION
+  return 'none';
 }
 
 export function parseIncidents(json, base) {
@@ -16,7 +15,6 @@ export function parseIncidents(json, base) {
       const name = raw.external_desc || (products.length ? `Issue affecting ${products.slice(0, 3).join(', ')}` : 'Incident');
       return incident({
         id: raw.id,
-        // Descriptions can run to several paragraphs; the first line is the headline.
         name: String(name).replace(/\*\*/g, '').split('\n').find((line) => line.trim() && !/^summary:?$/i.test(line.trim())) || name,
         impact: impactOf(raw),
         status: raw.end ? 'Resolved' : latest.status === 'AVAILABLE' ? 'Monitoring' : 'Ongoing',
@@ -34,7 +32,7 @@ export function parseIncidents(json, base) {
     description: '',
     incidents,
     history,
-    coverageStart: null, // the feed goes back about a year
+    coverageStart: null,
   };
 }
 

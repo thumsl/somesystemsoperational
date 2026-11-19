@@ -1,10 +1,3 @@
-/**
- * The catalog of tracked services.
- *
- * Each entry points at the provider's own public status page. `type` selects the adapter
- * that knows how to read it (see src/adapters). Names and categories are ours; everything
- * else shown on the site comes from the provider.
- */
 import { BRAND, PUBLIC_URL, SELF_SLUG } from './config.js';
 
 export const CATEGORIES = [
@@ -26,19 +19,14 @@ const list = [];
 const add = (type) => (slug, name, category, base, extra = {}) =>
   list.push({ slug, name, category, type, base, page: base, ...extra });
 
-/** Atlassian Statuspage, and incident.io pages that expose the same API. */
 const sp = add('statuspage');
-/** Instatus */
 const is = add('instatus');
-/** Better Stack */
 const bs = add('betterstack');
-/** One-off formats */
 const custom = (type, slug, name, category, page, extra = {}) =>
   list.push({ slug, name, category, type, base: page, page, ...extra });
 
 const T1 = { tier1: true };
 
-// ── Cloud & Infrastructure ──────────────────────────────────────────────────────────────
 custom('aws', 'aws', 'Amazon Web Services', 'cloud', 'https://health.aws.amazon.com/health/status', T1);
 custom('google', 'google-cloud', 'Google Cloud', 'cloud', 'https://status.cloud.google.com', T1);
 custom('azure', 'azure', 'Microsoft Azure', 'cloud', 'https://azure.status.microsoft/en-us/status', T1);
@@ -72,7 +60,6 @@ sp('temporal', 'Temporal', 'cloud', 'https://status.temporal.io');
 sp('inngest', 'Inngest', 'cloud', 'https://status.inngest.com');
 bs('trigger-dev', 'Trigger.dev', 'cloud', 'https://status.trigger.dev');
 
-// ── AI ──────────────────────────────────────────────────────────────────────────────────
 sp('openai', 'OpenAI', 'ai', 'https://status.openai.com', T1);
 sp('anthropic', 'Anthropic (Claude)', 'ai', 'https://status.claude.com', T1);
 sp('mistral', 'Mistral AI', 'ai', 'https://status.mistral.ai');
@@ -98,7 +85,6 @@ sp('replit', 'Replit', 'ai', 'https://status.replit.com');
 sp('scale-ai', 'Scale AI', 'ai', 'https://status.scale.com');
 sp('weights-and-biases', 'Weights & Biases', 'ai', 'https://status.wandb.com');
 
-// ── Developer Tools ─────────────────────────────────────────────────────────────────────
 sp('github', 'GitHub', 'dev', 'https://www.githubstatus.com', T1);
 custom('statusio', 'gitlab', 'GitLab', 'dev', 'https://status.gitlab.com', { statusioId: '5b36dc6502d06804c08349f7' });
 sp('bitbucket', 'Bitbucket', 'dev', 'https://bitbucket.status.atlassian.com');
@@ -141,7 +127,6 @@ bs('raycast', 'Raycast', 'dev', 'https://status.raycast.com');
 sp('readme', 'ReadMe', 'dev', 'https://status.readme.com');
 sp('mintlify', 'Mintlify', 'dev', 'https://status.mintlify.com');
 
-// ── Databases & Data ────────────────────────────────────────────────────────────────────
 sp('mongodb', 'MongoDB Atlas', 'data', 'https://status.mongodb.com');
 sp('supabase', 'Supabase', 'data', 'https://status.supabase.com');
 sp('planetscale', 'PlanetScale', 'data', 'https://www.planetscalestatus.com');
@@ -161,8 +146,6 @@ sp('hex', 'Hex', 'data', 'https://status.hex.tech');
 sp('segment', 'Segment', 'data', 'https://status.segment.com');
 sp('mixpanel', 'Mixpanel', 'data', 'https://www.mixpanelstatus.com');
 
-// ── Monitoring & Incident Response ──────────────────────────────────────────────────────
-// This site, measured by itself (src/self.js). Listed first: it is the one we can vouch for.
 custom('self', SELF_SLUG, BRAND, 'observability', PUBLIC_URL || 'https://localhost', { self: true, tier1: true });
 sp('sentry', 'Sentry', 'observability', 'https://status.sentry.io');
 sp('new-relic', 'New Relic', 'observability', 'https://status.newrelic.com');
@@ -177,7 +160,6 @@ sp('opsgenie', 'Opsgenie', 'observability', 'https://status.opsgenie.com');
 sp('incident-io', 'incident.io', 'observability', 'https://status.incident.io');
 bs('better-stack', 'Better Stack', 'observability', 'https://status.betterstack.com');
 
-// ── Communication & Messaging ───────────────────────────────────────────────────────────
 custom('slack', 'slack', 'Slack', 'comms', 'https://slack-status.com', T1);
 sp('discord', 'Discord', 'comms', 'https://discordstatus.com', T1);
 sp('zoom', 'Zoom', 'comms', 'https://www.zoomstatus.com', T1);
@@ -203,7 +185,6 @@ sp('braze', 'Braze', 'comms', 'https://status.braze.com');
 sp('iterable', 'Iterable', 'comms', 'https://status.iterable.com');
 sp('klaviyo', 'Klaviyo', 'comms', 'https://status.klaviyo.com');
 
-// ── Productivity & Work ─────────────────────────────────────────────────────────────────
 custom('m365', 'microsoft-365', 'Microsoft 365', 'productivity', 'https://status.cloud.microsoft', T1);
 custom('google', 'google-workspace', 'Google Workspace', 'productivity', 'https://www.google.com/appsstatus/dashboard', T1);
 sp('notion', 'Notion', 'productivity', 'https://www.notion-status.com');
@@ -238,7 +219,6 @@ is('gamma', 'Gamma', 'productivity', 'https://status.gamma.app');
 sp('proton', 'Proton', 'productivity', 'https://status.proton.me');
 is('fastmail', 'Fastmail', 'productivity', 'https://fastmailstatus.com');
 
-// ── Business & Support ──────────────────────────────────────────────────────────────────
 sp('hubspot', 'HubSpot', 'business', 'https://status.hubspot.com');
 sp('salesloft', 'Salesloft', 'business', 'https://status.salesloft.com');
 sp('gong', 'Gong', 'business', 'https://status.gong.io');
@@ -255,7 +235,6 @@ sp('rippling', 'Rippling', 'business', 'https://status.rippling.com');
 sp('xero', 'Xero', 'business', 'https://status.xero.com');
 sp('quickbooks', 'QuickBooks', 'business', 'https://status.quickbooks.intuit.com');
 
-// ── Payments, Finance & Commerce ────────────────────────────────────────────────────────
 sp('shopify', 'Shopify', 'payments', 'https://www.shopifystatus.com', T1);
 sp('square', 'Square', 'payments', 'https://www.issquareup.com');
 sp('paddle', 'Paddle', 'payments', 'https://paddlestatus.com');
@@ -269,7 +248,6 @@ sp('kraken', 'Kraken', 'payments', 'https://status.kraken.com');
 sp('robinhood', 'Robinhood', 'payments', 'https://status.robinhood.com');
 sp('bigcommerce', 'BigCommerce', 'payments', 'https://status.bigcommerce.com');
 
-// ── Security & Identity ─────────────────────────────────────────────────────────────────
 sp('1password', '1Password', 'security', 'https://status.1password.com');
 sp('lastpass', 'LastPass', 'security', 'https://status.lastpass.com');
 sp('duo', 'Duo', 'security', 'https://status.duo.com');
@@ -280,7 +258,6 @@ sp('sentinelone', 'SentinelOne', 'security', 'https://status.sentinelone.com');
 sp('palo-alto-networks', 'Palo Alto Networks', 'security', 'https://status.paloaltonetworks.com');
 bs('nordvpn', 'NordVPN', 'security', 'https://status.nordvpn.com');
 
-// ── Websites & Publishing ───────────────────────────────────────────────────────────────
 sp('squarespace', 'Squarespace', 'web', 'https://status.squarespace.com');
 sp('wix', 'Wix', 'web', 'https://status.wix.com');
 sp('webflow', 'Webflow', 'web', 'https://status.webflow.com');
@@ -297,7 +274,6 @@ bs('hashnode', 'Hashnode', 'web', 'https://status.hashnode.com');
 sp('vimeo', 'Vimeo', 'web', 'https://www.vimeostatus.com');
 is('wistia', 'Wistia', 'web', 'https://status.wistia.com');
 
-// ── Social, Media & Gaming ──────────────────────────────────────────────────────────────
 custom('apple', 'apple', 'Apple Services', 'consumer', 'https://www.apple.com/support/systemstatus/', {
   feed: 'https://www.apple.com/support/systemstatus/data/system_status_en_US.js',
   tier1: true,

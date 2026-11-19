@@ -1,6 +1,5 @@
 import { FETCH_TIMEOUT_MS, MAX_BODY_BYTES, USER_AGENT } from './config.js';
 
-/** GET a URL as text, with a timeout and a size cap. Throws on anything but a 2xx. */
 export async function getText(url, { encoding = 'utf-8', accept = '*/*' } = {}) {
   const res = await fetch(url, {
     headers: { 'user-agent': USER_AGENT, accept },
@@ -27,7 +26,6 @@ export async function getText(url, { encoding = 'utf-8', accept = '*/*' } = {}) 
 }
 
 export async function getJson(url, options) {
-  // Some status pages serve HTML from the API path unless JSON is the only thing asked for.
   const text = await getText(url, { accept: 'application/json', ...options });
   try {
     return JSON.parse(text);

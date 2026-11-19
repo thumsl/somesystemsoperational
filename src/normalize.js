@@ -1,10 +1,3 @@
-/**
- * Shared vocabulary and helpers for turning each provider's format into one model.
- *
- * Provider status:  operational | degraded | partial_outage | major_outage | maintenance | unknown | pending
- * Incident impact:  none | minor | major | critical | maintenance
- */
-
 export const STATUS_RANK = { operational: 0, maintenance: 0, degraded: 1, partial_outage: 2, major_outage: 3 };
 export const IMPACT_RANK = { none: 0, maintenance: 0, minor: 1, major: 2, critical: 3 };
 const RANK_TO_STATUS = ['operational', 'degraded', 'partial_outage', 'major_outage'];
@@ -15,7 +8,6 @@ export const impactToStatus = (impact) =>
 export const statusToImpact = (status) =>
   status === 'maintenance' ? 'maintenance' : RANK_TO_IMPACT[STATUS_RANK[status] ?? 0];
 
-/** The worst status in a list; maintenance only wins when nothing else is wrong. */
 export function worstStatus(statuses) {
   let rank = 0;
   let maintenance = false;
@@ -29,7 +21,6 @@ export function worstStatus(statuses) {
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“' };
 
-/** Plain text from provider-supplied HTML or text. Output is NOT escaped; escape it when rendering. */
 export function plainText(input) {
   if (input == null) return '';
   return String(input)
@@ -57,13 +48,11 @@ export function clip(text, max) {
   return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
 }
 
-/** "under_maintenance" → "Under maintenance" */
 export function humanize(value) {
   const s = String(value ?? '').replace(/[_-]+/g, ' ').trim().toLowerCase();
   return s ? s[0].toUpperCase() + s.slice(1) : '';
 }
 
-/** ISO string for anything Date can parse (or epoch ms / s), else null. */
 export function toIso(value) {
   if (value == null || value === '') return null;
   let d;
@@ -76,7 +65,6 @@ export function toIso(value) {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-/** Only http(s) links from providers are ever rendered. */
 export function safeUrl(value, fallback = null) {
   if (typeof value !== 'string') return fallback;
   try {
@@ -106,10 +94,6 @@ export function incident({ id, name, impact, status, startedAt, resolvedAt = nul
 
 const MAX_COMPONENTS = 60;
 
-/**
- * Keep component lists readable: some providers publish hundreds (one per region or
- * datacenter). Big lists are reduced to the components that are not operational.
- */
 export function components(all) {
   const clean = all
     .filter((c) => c && c.name)

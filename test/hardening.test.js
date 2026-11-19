@@ -108,7 +108,6 @@ test('self: history survives a restart, and a long silence is recorded as downti
     first.tick();
     assert.equal(JSON.parse(readFileSync(file, 'utf8')).incidents.length, 1);
 
-    // A rolling deploy: the next process starts seconds later.
     now += 20_000;
     const second = new SelfMonitor({ file, pollIntervalMs: 120_000, now: () => now, log: quiet });
     assert.equal(second.snapshot().history.length, 1);
@@ -116,7 +115,6 @@ test('self: history survives a restart, and a long silence is recorded as downti
     assert.equal(second.snapshot().coverageStart, '2026-11-18T12:00:00.000Z');
     second.tick();
 
-    // A crash: nothing runs for ten minutes.
     now += 10 * 60_000;
     const third = new SelfMonitor({ file, pollIntervalMs: 120_000, now: () => now, log: quiet });
     const down = third.snapshot().history.at(-1);

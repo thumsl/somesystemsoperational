@@ -1,4 +1,3 @@
-/** Builds the internet-wide picture the pages and the API are rendered from. */
 import { HISTORY_DAYS } from './config.js';
 import { CATEGORIES } from './providers.js';
 import { IMPACT_RANK, STATUS_RANK } from './normalize.js';
@@ -66,7 +65,6 @@ export function buildSummary(states, now) {
     last30d: last30,
     perDay: last30 / 30,
     self: states.find((s) => s.provider.self) ?? null,
-    // When the other status pages were last read; this site's own state is always fresh.
     checkedAt: states.reduce((max, s) => (s.provider.self ? max : Math.max(max, s.okAt ?? 0)), 0) || null,
   };
 }

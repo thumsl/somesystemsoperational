@@ -2,7 +2,6 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
-  // ── Times: relative ("3h ago") and local absolute ──────────────────────────────────────
   function ago(ms) {
     const s = Math.max(0, Math.round(ms / 1000));
     if (s < 45) return 'just now';
@@ -28,7 +27,6 @@
     }
   }
 
-  // ── Filtering ──────────────────────────────────────────────────────────────────────────
   const q = $('#q');
   const only = $('#only');
 
@@ -53,7 +51,6 @@
   q?.addEventListener('input', applyFilter);
   only?.addEventListener('change', applyFilter);
 
-  // ── Day-bar tooltips ───────────────────────────────────────────────────────────────────
   const tip = $('#tip');
   const LEVEL = { '-': 'No data', 0: 'No incidents reported', 1: 'Minor incident', 2: 'Major incident', 3: 'Critical incident' };
   const dayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
@@ -86,7 +83,6 @@
   document.addEventListener('pointermove', showTip);
   document.addEventListener('pointerleave', hideTip);
   document.addEventListener('scroll', hideTip, { passive: true });
-  // Rows are links; on touch screens a tap on the bar should show the day, not navigate.
   document.addEventListener('click', (event) => {
     if (event.pointerType === 'touch' && event.target.closest('.bar')) {
       event.preventDefault();
@@ -94,7 +90,6 @@
     }
   });
 
-  // ── Subscribe popover ──────────────────────────────────────────────────────────────────
   const subscribe = $('#subscribe');
   const pop = $('#subscribe-pop');
   subscribe?.addEventListener('click', (event) => {
@@ -112,7 +107,6 @@
     if (event.key === 'Escape' && pop) pop.hidden = true;
   });
 
-  // ── Live refresh: re-fetch this page and swap the parts marked data-live ───────────────
   const closed = new Set();
   const opened = new Set();
   document.addEventListener(
@@ -146,9 +140,7 @@
       if (icon && freshIcon && icon.getAttribute('href') !== freshIcon.getAttribute('href')) icon.href = freshIcon.getAttribute('href');
       refreshTimes();
       applyFilter();
-    } catch {
-      // Offline or mid-deploy: keep what we have and try again next time.
-    }
+    } catch {}
   }
 
   refreshTimes();

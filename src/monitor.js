@@ -11,9 +11,7 @@ const blank = (provider) => ({
   componentCount: 0,
   componentIssues: 0,
   componentsTruncated: false,
-  /** Past incidents, or null when the provider publishes none. */
   history: null,
-  /** ISO time from which `history` is complete; null means the whole window. */
   coverageStart: null,
   checkedAt: null,
   okAt: null,
@@ -30,7 +28,6 @@ async function pool(items, limit, worker) {
   );
 }
 
-/** Polls every provider on a loop and keeps the latest normalized state in memory. */
 export class Monitor {
   constructor(providers, { ctx = { ...fetcher, now: () => Date.now() }, log = console, onCycle = null } = {}) {
     this.providers = providers;
@@ -53,7 +50,6 @@ export class Monitor {
     return [...this.states.values()];
   }
 
-  /** Replace part of a provider's state right away, for state that is measured rather than polled. */
   apply(slug, result) {
     const state = this.states.get(slug);
     if (!state) return;
@@ -62,7 +58,6 @@ export class Monitor {
     this.version++;
   }
 
-  /** True once every provider has been tried at least once. */
   get warm() {
     return this.cycles > 0;
   }
@@ -78,7 +73,6 @@ export class Monitor {
       state.checkedAt = now;
       state.failures += 1;
       state.error = String(err?.message || err).slice(0, 200);
-      // Keep showing the last known status through a blip; give up after a few failures.
       if (state.status === 'pending' || state.failures >= MAX_FAILURES) {
         Object.assign(state, { status: 'unknown', description: '', incidents: [] });
       }
@@ -110,7 +104,6 @@ export class Monitor {
 
     const due = this.providers.filter((p) => ADAPTERS[p.type].slow && (this.slowDue.get(p.slug) ?? 0) <= started);
     for (const p of due) {
-      // Spread later refreshes out so they do not all land in the same cycle.
       this.slowDue.set(p.slug, started + HISTORY_INTERVAL_MS * (0.75 + Math.random() * 0.5));
     }
     await pool(due, CONCURRENCY, (p) => this.pollSlow(p));

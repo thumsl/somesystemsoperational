@@ -12,14 +12,11 @@ import { renderDetail, renderFavicon, renderHome, renderNotFound, setAssetVersio
 import { SelfMonitor } from './self.js';
 import { buildSummary } from './summary.js';
 
-// ── Responses are built once, compressed once, and served from memory ───────────────────
 const SECURITY_HEADERS = {
   'content-security-policy': "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
 };
-// Short browser cache, slightly longer shared cache, and permission for a CDN to keep
-// serving the last good copy if this server is slow or gone.
 const PAGE_CACHE = 'public, max-age=15, s-maxage=30, stale-while-revalidate=120, stale-if-error=86400';
 const API_CACHE = 'public, max-age=30, stale-while-revalidate=120, stale-if-error=86400';
 const FOREVER = 'public, max-age=31536000, immutable';
@@ -61,7 +58,6 @@ function plain(req, res, status, text, headers = {}) {
   res.end(req.method === 'HEAD' ? undefined : text);
 }
 
-// ── Static files, addressed by content hash so they can be cached forever ───────────────
 const file = (name) => readFileSync(new URL(`../public/${name}`, import.meta.url));
 const css = file('style.css');
 const js = file('app.js');
@@ -76,7 +72,6 @@ for (const level of ['ok', 'warn', 'partial', 'bad', 'maint', 'pending']) {
   STATIC.set(`/favicon-${level}.svg`, pack('image/svg+xml', renderFavicon(level), 'public, max-age=604800'));
 }
 
-// ── State ───────────────────────────────────────────────────────────────────────────────
 const self = new SelfMonitor({ file: DATA_DIR ? `${DATA_DIR.replace(/\/+$/, '')}/self.json` : null, pollIntervalMs: POLL_INTERVAL_MS });
 const monitor = new Monitor(PROVIDERS, {
   ctx: { ...fetcher, now: () => Date.now(), self: () => self.snapshot() },
@@ -93,8 +88,6 @@ setInterval(() => {
   limiter.prune();
 }, 15_000).unref();
 
-// Rendering 250 services is cheap but not free; reuse the result until the data changes,
-// and never rebuild more than once every few seconds no matter how many requests arrive.
 const memo = new Map();
 function cached(key, build) {
   const hit = memo.get(key);
@@ -108,7 +101,6 @@ const summary = () => cached('summary', () => buildSummary(monitor.all(), Date.n
 const page = (key, render) => cached(key, () => pack('text/html; charset=utf-8', render(), PAGE_CACHE));
 const api = (key, build) => cached(key, () => pack('application/json; charset=utf-8', JSON.stringify(build()), API_CACHE, { 'access-control-allow-origin': '*' }));
 
-// ── API: the Statuspage dialect, so anything that can read a status page can read this one ─
 const API_STATUS = { operational: 'operational', degraded: 'degraded_performance', partial_outage: 'partial_outage', major_outage: 'major_outage', maintenance: 'under_maintenance', unknown: 'unknown', pending: 'unknown' };
 const API_INDICATOR = { ok: 'none', warn: 'minor', bad: 'major', pending: 'none' };
 const CATEGORY_NAME = new Map(CATEGORIES);
@@ -146,16 +138,13 @@ function apiSummary(s) {
   };
 }
 
-// ── Requests ────────────────────────────────────────────────────────────────────────────
 function handle(req, res) {
   const ip = clientIp(req, CLIENT_IP_HEADER);
   const url = req.url || '/';
-  // Query strings are never used, so they are dropped rather than parsed: a random one
-  // cannot be used to dodge the cache.
   const path = url.split('?', 1)[0];
 
   if (path === '/health') {
-    // Report healthy only once there is something to show, so a deploy never swaps in an empty page.
+    // unhealthy until the first round is in, otherwise a deploy swaps in an empty page
     const ready = monitor.warm || Date.now() - monitor.startedAt > 90_000;
     return plain(req, res, ready ? 200 : 503, ready ? 'ok' : 'warming up');
   }
@@ -188,7 +177,6 @@ function handle(req, res) {
 
 const server = createServer(
   {
-    // Slow or oversized requests are dropped early instead of holding a connection open.
     maxHeaderSize: 8 * 1024,
     headersTimeout: 8_000,
     requestTimeout: 15_000,

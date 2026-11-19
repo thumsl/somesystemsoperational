@@ -1,7 +1,5 @@
-/** Adapters for providers with a format of their own. */
 import { components, incident, impactToStatus, worstStatus, clip, plainText } from '../normalize.js';
 
-// ── Microsoft Azure: RSS feed that lists open incidents; empty when all is well ─────────
 export function parseAzure(xml) {
   if (!/<rss[\s>]/i.test(xml)) throw new Error('not an RSS feed');
   const tag = (block, name) => {
@@ -22,7 +20,6 @@ export function parseAzure(xml) {
   return { status: worstStatus(incidents.map((i) => impactToStatus(i.impact))), description: '', incidents };
 }
 
-// ── Microsoft 365: one entry per consumer service ───────────────────────────────────────
 function m365Status(value) {
   const s = String(value || '').toLowerCase();
   if (!s || s === 'operational' || s.includes('restored') || s.includes('false positive')) return 'operational';
@@ -50,7 +47,6 @@ export function parseM365(json) {
   return { status: worstStatus(services.map((s) => s.status)), description: '', incidents, ...components(services) };
 }
 
-// ── Apple: system status JSON (the developer feed is wrapped in a JSONP callback) ───────
 const APPLE_IMPACT = { outage: 'major', issue: 'minor', performance: 'minor', maintenance: 'maintenance' };
 
 export function parseApple(text, pageUrl) {
@@ -94,12 +90,11 @@ export function parseApple(text, pageUrl) {
     description: '',
     incidents: history.filter((i) => !i.resolvedAt),
     history,
-    coverageStart: oldest, // Apple only lists the last few days
+    coverageStart: oldest,
     ...components(services),
   };
 }
 
-// ── Slack ───────────────────────────────────────────────────────────────────────────────
 const SLACK_IMPACT = { outage: 'critical', incident: 'minor', notice: 'none', maintenance: 'maintenance' };
 
 function slackIncident(raw) {
@@ -131,7 +126,6 @@ export function parseSlackHistory(json) {
   return { history, coverageStart: oldest };
 }
 
-// ── Heroku ──────────────────────────────────────────────────────────────────────────────
 const HEROKU = { green: 'operational', yellow: 'degraded', red: 'major_outage', blue: 'maintenance' };
 
 export function parseHeroku(json) {
@@ -153,7 +147,6 @@ export function parseHeroku(json) {
   return { status: worst === 'operational' && incidents.length ? 'degraded' : worst, description: '', incidents, ...components(systems) };
 }
 
-// ── Status.io (GitLab) ──────────────────────────────────────────────────────────────────
 function statusioCode(code) {
   if (code >= 500) return 'major_outage';
   if (code >= 400) return 'partial_outage';
@@ -183,7 +176,6 @@ export function parseStatusio(json, pageUrl) {
   return { status, description: clip(plainText(result.status_overall.status), 160), incidents, ...components(list) };
 }
 
-// ── Oracle Cloud: a Statuspage-style status.json without the rest of the API ───────────
 const INDICATOR = { none: 'operational', minor: 'degraded', major: 'partial_outage', critical: 'major_outage', maintenance: 'maintenance' };
 
 export function parseOci(json) {
@@ -192,7 +184,6 @@ export function parseOci(json) {
   return { status: INDICATOR[indicator], description: clip(plainText(json.status.description), 160), incidents: [] };
 }
 
-// ── Fastly: a single overall status word ────────────────────────────────────────────────
 export function parseFastly(json) {
   const word = String(json?.Status ?? '');
   if (!word) throw new Error('not a Fastly status document');
@@ -204,7 +195,6 @@ export function parseFastly(json) {
   return { status, description: clip(plainText(json.StatusText || word), 160), incidents: [] };
 }
 
-// ── PlayStation Network (Americas region) ───────────────────────────────────────────────
 export function parsePsn(json) {
   if (!json || !Array.isArray(json.countries)) throw new Error('not a PSN status document');
   const open = [...(json.status || []), ...json.countries.flatMap((c) => c.status || [])];

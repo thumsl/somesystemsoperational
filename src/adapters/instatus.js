@@ -1,4 +1,3 @@
-/** Instatus (`/summary.json`, `/v2/components.json`). It publishes no incident history. */
 import { components, incident, impactToStatus, worstStatus } from '../normalize.js';
 
 const IMPACT = {
@@ -22,7 +21,7 @@ function pageStatus(value) {
   if (s.includes('MAJOROUTAGE')) return 'major_outage';
   if (s.includes('PARTIALOUTAGE')) return 'partial_outage';
   if (s.includes('MAINTENANCE')) return 'maintenance';
-  return 'degraded'; // HASISSUES and anything else that is not UP
+  return 'degraded';
 }
 
 export function parseSummary(json) {
@@ -46,7 +45,6 @@ export function parseSummary(json) {
   const fromIncidents = worstStatus(incidents.map((i) => impactToStatus(i.impact)));
   const fromPage = pageStatus(json.page.status);
   return {
-    // Incident impact is the more specific signal; the page status is the fallback.
     status: fromIncidents !== 'operational' ? fromIncidents : fromPage,
     description: '',
     incidents: [...incidents, ...maintenances],
