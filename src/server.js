@@ -13,7 +13,7 @@ import { SelfMonitor } from './self.js';
 import { buildSummary } from './summary.js';
 
 const SECURITY_HEADERS = {
-  'content-security-policy': "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'content-security-policy': "default-src 'none'; style-src 'self'; font-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
 };
@@ -23,7 +23,7 @@ const FOREVER = 'public, max-age=31536000, immutable';
 
 function pack(type, body, cacheControl, extra = {}) {
   const raw = Buffer.isBuffer(body) ? body : Buffer.from(body);
-  const compress = raw.length > 1024;
+  const compress = raw.length > 1024 && !type.startsWith('font/');
   return {
     raw,
     gzip: compress ? gzipSync(raw, { level: 6 }) : null,
@@ -61,11 +61,13 @@ function plain(req, res, status, text, headers = {}) {
 const file = (name) => readFileSync(new URL(`../public/${name}`, import.meta.url));
 const css = file('style.css');
 const js = file('app.js');
-const ASSET_VERSION = createHash('sha256').update(Buffer.concat([css, js])).digest('hex').slice(0, 10);
+const font = file('instrument-sans.woff2');
+const ASSET_VERSION = createHash('sha256').update(Buffer.concat([css, js, font])).digest('hex').slice(0, 10);
 setAssetVersion(ASSET_VERSION);
 const STATIC = new Map([
   [`/assets/${ASSET_VERSION}/style.css`, pack('text/css; charset=utf-8', css, FOREVER)],
   [`/assets/${ASSET_VERSION}/app.js`, pack('text/javascript; charset=utf-8', js, FOREVER)],
+  [`/assets/${ASSET_VERSION}/instrument-sans.woff2`, pack('font/woff2', font, FOREVER)],
   ['/robots.txt', pack('text/plain; charset=utf-8', 'User-agent: *\nAllow: /\n', 'public, max-age=86400')],
 ]);
 for (const level of ['ok', 'warn', 'partial', 'bad', 'maint', 'pending']) {

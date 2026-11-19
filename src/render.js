@@ -87,6 +87,7 @@ function layout({ title, description, path, body, level, summary }) {
 <meta name="color-scheme" content="light dark">
 ${canonical}
 <link rel="icon" type="image/svg+xml" href="/favicon-${esc(level)}.svg">
+<link rel="preload" href="/assets/${ASSET_VERSION}/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/${ASSET_VERSION}/style.css">
 <script src="/assets/${ASSET_VERSION}/app.js" defer></script>
 </head>
@@ -335,6 +336,6 @@ export function renderNotFound(summary) {
   return layout({ title: `Not found — ${BRAND}`, description: 'Page not found.', path: '/', level: 'pending', body, summary });
 }
 
-const FAVICON_COLOR = { ok: '#22a565', warn: '#e5a50a', partial: '#e8590c', bad: '#d92d20', maint: '#2f80ed', pending: '#98a2b3' };
+const FAVICON_COLOR = { ok: '#2a9456', warn: '#eeb024', partial: '#e0672b', bad: '#cf3b34', maint: '#6a55c9', pending: '#98a096' };
 export const renderFavicon = (level) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="${FAVICON_COLOR[level] ?? FAVICON_COLOR.pending}"/></svg>`;
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="4" y="4" width="24" height="24" rx="7" fill="${FAVICON_COLOR[level] ?? FAVICON_COLOR.pending}"/></svg>`;
