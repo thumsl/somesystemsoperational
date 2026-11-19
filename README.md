@@ -22,6 +22,7 @@ rebuilt from the providers' own feeds within a minute of starting.
 | `PUBLIC_URL` | (none) | Public origin, used for canonical links and in the bot user agent |
 | `UMAMI_SCRIPT` | (none) | URL of an Umami `script.js`. Analytics stay off unless this and the id are set |
 | `UMAMI_WEBSITE_ID` | (none) | Website id from Umami |
+| `GOOGLE_SITE_VERIFICATION` | (none) | Token for the Search Console verification meta tag |
 | `DONATE_BTC`, `DONATE_ETH` | the author's | Donation addresses in the footer. Set to an empty string to hide one |
 | `BRAND_NAME` | `Some Systems Operational` | Site name |
 | `DATA_DIR` | (none; `/data` in the image) | Where the site keeps its own incident history. Mount a volume to keep it across deploys |
@@ -75,6 +76,9 @@ sp('example', 'Example', 'dev', 'https://status.example.com');
 |---|---|
 | `/` | The internet |
 | `/<slug>` | One service: components, active incidents, history |
+| `/status/<category>` | One category, e.g. `/status/developer-tools` |
+| `/feed.xml` | Latest incidents everywhere, as an Atom feed |
+| `/sitemap.xml`, `/llms.txt` | For crawlers |
 | `/api/v2/summary.json` | Everything, as JSON |
 | `/api/v2/status.json` | Just the headline |
 | `/health` | 200 once the first round of checks is done |

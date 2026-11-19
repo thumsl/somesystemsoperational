@@ -236,6 +236,15 @@ body.only-issues .row[data-ok="1"], .row.no-match, .group.is-empty { display: no
 .past .muted { font-size: 13.5px; }
 .past .chip { margin-top: 3px; }
 
+.faq h3 { margin-top: 18px; font-size: 15.5px; font-weight: 600; }
+.faq p { max-width: 78ch; margin-top: 5px; color: var(--muted); }
+.faq h2 + p { margin-top: 10px; }
+.faq .related { margin-top: 22px; font-size: 14.5px; }
+.faq a, .detail-head .muted a { color: inherit; }
+.detail-head .muted a { text-decoration: none; }
+.detail-head .muted a:hover { text-decoration: underline; }
+div.group .row:first-child { border-top: 0; }
+
 .foot { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--border); font-size: 13.5px; color: var(--muted); }
 .foot p { max-width: 78ch; }
 .foot p + p { margin-top: 8px; }

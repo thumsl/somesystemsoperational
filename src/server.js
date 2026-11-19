@@ -4,11 +4,12 @@ import { createServer } from 'node:http';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { brotliCompressSync, constants as zlib, gzipSync } from 'node:zlib';
 import { BRAND, CLIENT_IP_HEADER, DATA_DIR, POLL_INTERVAL_MS, PORT, PUBLIC_URL, RATE_LIMIT_BURST, RATE_LIMIT_PER_SEC, SELF_SLUG, UMAMI_SCRIPT } from './config.js';
+import { feed, llms, sitemap } from './feeds.js';
 import * as fetcher from './fetcher.js';
 import { Monitor } from './monitor.js';
 import { CATEGORIES, PROVIDERS, PROVIDERS_BY_SLUG } from './providers.js';
 import { bucketKey, clientIp, isLoopback, RateLimiter } from './ratelimit.js';
-import { renderDetail, renderFavicon, renderHome, renderNotFound, setAssetVersion } from './render.js';
+import { renderCategory, renderDetail, renderFavicon, renderHome, renderNotFound, setAssetVersion } from './render.js';
 import { SelfMonitor } from './self.js';
 import { buildSummary } from './summary.js';
 
@@ -24,7 +25,7 @@ const FOREVER = 'public, max-age=31536000, immutable';
 
 function pack(type, body, cacheControl, extra = {}) {
   const raw = Buffer.isBuffer(body) ? body : Buffer.from(body);
-  const compress = raw.length > 1024 && !type.startsWith('font/');
+  const compress = raw.length > 1024 && !/^(font|image\/png)/.test(type);
   return {
     raw,
     gzip: compress ? gzipSync(raw, { level: 6 }) : null,
@@ -54,6 +55,11 @@ function respond(req, res, status, entry) {
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
+function redirect(res, location) {
+  res.writeHead(301, { location, 'cache-control': 'public, max-age=3600', 'content-length': 0 });
+  res.end();
+}
+
 function plain(req, res, status, text, headers = {}) {
   res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'content-length': Buffer.byteLength(text), 'cache-control': 'no-store', ...SECURITY_HEADERS, ...headers });
   res.end(req.method === 'HEAD' ? undefined : text);
@@ -69,7 +75,8 @@ const STATIC = new Map([
   [`/assets/${ASSET_VERSION}/style.css`, pack('text/css; charset=utf-8', css, FOREVER)],
   [`/assets/${ASSET_VERSION}/app.js`, pack('text/javascript; charset=utf-8', js, FOREVER)],
   [`/assets/${ASSET_VERSION}/instrument-sans.woff2`, pack('font/woff2', font, FOREVER)],
-  ['/robots.txt', pack('text/plain; charset=utf-8', 'User-agent: *\nAllow: /\n', 'public, max-age=86400')],
+  ['/og.png', pack('image/png', file('og.png'), 'public, max-age=86400')],
+  ['/robots.txt', pack('text/plain; charset=utf-8', `User-agent: *\nAllow: /\n${PUBLIC_URL ? `\nSitemap: ${PUBLIC_URL}/sitemap.xml\n` : ''}`, 'public, max-age=86400')],
 ]);
 for (const level of ['ok', 'warn', 'partial', 'bad', 'maint', 'pending']) {
   STATIC.set(`/favicon-${level}.svg`, pack('image/svg+xml', renderFavicon(level), 'public, max-age=604800'));
@@ -102,11 +109,13 @@ function cached(key, build) {
 }
 const summary = () => cached('summary', () => buildSummary(monitor.all(), Date.now()));
 const page = (key, render) => cached(key, () => pack('text/html; charset=utf-8', render(), PAGE_CACHE));
+const doc = (key, type, build) => cached(key, () => pack(type, build(), API_CACHE));
 const api = (key, build) => cached(key, () => pack('application/json; charset=utf-8', JSON.stringify(build()), API_CACHE, { 'access-control-allow-origin': '*' }));
 
 const API_STATUS = { operational: 'operational', degraded: 'degraded_performance', partial_outage: 'partial_outage', major_outage: 'major_outage', maintenance: 'under_maintenance', unknown: 'unknown', pending: 'unknown' };
 const API_INDICATOR = { ok: 'none', warn: 'minor', bad: 'major', pending: 'none' };
 const CATEGORY_NAME = new Map(CATEGORIES);
+const HOST = PUBLIC_URL ? new URL(PUBLIC_URL).host : '';
 
 function apiStatus(s) {
   return {
@@ -166,6 +175,11 @@ function handle(req, res) {
   }
   if (url.length > 2048) return plain(req, res, 414, 'URI too long\n');
 
+  const host = String(req.headers.host || '').toLowerCase();
+  if (HOST && host && host !== HOST && !isLoopback(ip)) return redirect(res, PUBLIC_URL + url);
+  const tidy = `/${path.split('/').filter(Boolean).join('/')}`;
+  if (tidy !== path) return redirect(res, tidy + url.slice(path.length));
+
   const fixed = STATIC.get(path);
   if (fixed) return respond(req, res, 200, fixed);
   if (path === '/') return respond(req, res, 200, page('home', () => renderHome(summary())));
@@ -173,7 +187,18 @@ function handle(req, res) {
   if (path === '/api/v2/status.json') return respond(req, res, 200, api('api:status', () => apiStatus(summary())));
   if (path === '/favicon.ico' || path === '/favicon.svg') return respond(req, res, 200, STATIC.get(`/favicon-${summary().headline.level}.svg`));
 
-  const slug = path.slice(1).replace(/\/$/, '');
+  if (path === '/sitemap.xml') return respond(req, res, 200, doc('sitemap', 'application/xml; charset=utf-8', () => sitemap(summary())));
+  if (path === '/feed.xml') return respond(req, res, 200, doc('feed', 'application/atom+xml; charset=utf-8', () => feed(monitor.all(), Date.now())));
+  if (path === '/llms.txt') return respond(req, res, 200, doc('llms', 'text/plain; charset=utf-8', () => llms(summary())));
+
+  if (path.startsWith('/status/')) {
+    const category = summary().categories.find((c) => c.slug === path.slice(8));
+    if (category) return respond(req, res, 200, page(`category:${category.key}`, () => renderCategory(category, summary())));
+  }
+  const alias = /^\/is-(.+)-down$/.exec(path);
+  if (alias && PROVIDERS_BY_SLUG.has(alias[1])) return redirect(res, `/${alias[1]}`);
+
+  const slug = path.slice(1);
   if (PROVIDERS_BY_SLUG.has(slug)) return respond(req, res, 200, page(`detail:${slug}`, () => renderDetail(monitor.get(slug), summary())));
   return respond(req, res, 404, page('404', () => renderNotFound(summary())));
 }

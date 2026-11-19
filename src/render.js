@@ -1,5 +1,5 @@
-import { BRAND, DONATE, HISTORY_DAYS, PUBLIC_URL, TAGLINE, UMAMI_SCRIPT, UMAMI_WEBSITE_ID } from './config.js';
-import { CATEGORIES } from './providers.js';
+import { BRAND, DONATE, GOOGLE_SITE_VERIFICATION, HISTORY_DAYS, POLL_INTERVAL_MS, PUBLIC_URL, TAGLINE, UMAMI_SCRIPT, UMAMI_WEBSITE_ID } from './config.js';
+import { CATEGORY_SLUG } from './providers.js';
 import { DAY, historyWindow, impactfulIncidents, providerDays } from './history.js';
 import { clip } from './normalize.js';
 
@@ -17,9 +17,12 @@ const STATUS_LABEL = {
 };
 const IMPACT_LABEL = { none: 'Notice', minor: 'Minor', major: 'Major', critical: 'Critical', maintenance: 'Maintenance' };
 const BANNER_LEVEL = { operational: 'ok', maintenance: 'maint', degraded: 'warn', partial_outage: 'partial', major_outage: 'bad', unknown: 'pending', pending: 'pending' };
-const CATEGORY_NAME = new Map(CATEGORIES);
 
 const plural = (n, one, many = `${one}s`) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
+const and = new Intl.ListFormat('en', { type: 'conjunction' });
+const or = new Intl.ListFormat('en', { type: 'disjunction' });
+const absolute = (path) => PUBLIC_URL + path;
+const categoryPath = (key) => `/status/${CATEGORY_SLUG.get(key)}`;
 
 function fmtUtc(iso) {
   if (!iso) return '';
@@ -85,9 +88,22 @@ function donate() {
   return `<div class="donate"><p>Donations keep some systems operational:</p><ul>${items.join('')}</ul></div>`;
 }
 
-function layout({ title, description, path, body, level, summary }) {
+function jsonLd(items) {
+  return items
+    .map((item) => `<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', ...item }).replace(/</g, '\\u003c')}</script>`)
+    .join('\n');
+}
+
+const crumbs = (...steps) => ({
+  '@type': 'BreadcrumbList',
+  itemListElement: steps.map(([name, path], i) => ({ '@type': 'ListItem', position: i + 1, name, item: absolute(path) })),
+});
+
+function layout({ title, description, path, body, level, summary, data = [], index = true }) {
   const own = summary.self;
-  const canonical = PUBLIC_URL ? `<link rel="canonical" href="${esc(PUBLIC_URL + path)}">` : '';
+  const canonical = PUBLIC_URL && index ? `<link rel="canonical" href="${esc(absolute(path))}">\n<meta property="og:url" content="${esc(absolute(path))}">` : '';
+  const verify = GOOGLE_SITE_VERIFICATION ? `<meta name="google-site-verification" content="${esc(GOOGLE_SITE_VERIFICATION)}">` : '';
+  const browse = summary.categories.map((c) => `<a href="${categoryPath(c.key)}">${esc(c.name)}</a>`).join(' · ');
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -99,14 +115,20 @@ function layout({ title, description, path, body, level, summary }) {
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${esc(BRAND)}">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="${esc(absolute('/og.png'))}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
-${canonical}
+${index ? canonical : '<meta name="robots" content="noindex">'}
+${verify}
+<link rel="alternate" type="application/atom+xml" title="${esc(BRAND)}: incidents" href="/feed.xml">
 <link rel="icon" type="image/svg+xml" href="/favicon-${esc(level)}.svg">
 <link rel="preload" href="/assets/${ASSET_VERSION}/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/${ASSET_VERSION}/style.css">
 <script src="/assets/${ASSET_VERSION}/app.js" defer></script>
 ${tracker()}
+${jsonLd(data)}
 </head>
 <body>
 <div class="wrap">
@@ -120,7 +142,8 @@ ${tracker()}
 ${body}
 <footer class="foot">
   <p>${esc(BRAND)} is an unofficial aggregate of public status pages. Every status shown is reported by the provider itself, so the real situation may be worse. Not affiliated with any of the services listed.</p>
-  <p><a href="/">All services</a> · <a href="/api/v2/summary.json">API</a> · Status of this page: <span id="live-self" data-live>${own ? `<a class="status s-${own.status}" href="/${esc(own.provider.slug)}">${STATUS_LABEL[own.status]}</a>` : 'unknown'}</span></p>
+  <p>${browse}</p>
+  <p><a href="/">All services</a> · <a href="/api/v2/summary.json">API</a> · <a href="/feed.xml">Feed</a> · Status of this page: <span id="live-self" data-live>${own ? `<a class="status s-${own.status}" href="/${esc(own.provider.slug)}">${STATUS_LABEL[own.status]}</a>` : 'unknown'}</span></p>
   ${donate()}
 </footer>
 </div>
@@ -154,7 +177,8 @@ function serviceRow({ state, days }, win) {
   const { provider, status } = state;
   const ok = status === 'operational' || status === 'maintenance' || status === 'pending';
   const label = state.history ? `${provider.name}: incident history for the last ${win.days} days` : `${provider.name}: no incident history published`;
-  return `<a class="row" href="/${esc(provider.slug)}" data-name="${esc(provider.name.toLowerCase())}" data-ok="${ok ? 1 : 0}">
+  const names = [provider.name, ...(provider.aka ?? [])].join(' ').toLowerCase();
+  return `<a class="row" href="/${esc(provider.slug)}" data-name="${esc(names)}" data-ok="${ok ? 1 : 0}">
   <span class="name"><span class="dot s-${status}"></span>${esc(provider.name)}</span>
   ${bar(days.levels, win, { c: days.counts }, label)}
   <span class="status s-${status}">${STATUS_LABEL[status]}</span>
@@ -225,14 +249,89 @@ export function renderHome(summary) {
 </section>
 </main>`;
 
+  const description = `${counts.operational} of ${total} major internet services are operational right now, with ${plural(summary.incidents.length, 'active incident')}. One status page for the whole internet.`;
   return layout({
-    title: `${BRAND} — Internet Status`,
-    description: `${counts.operational} of ${total} major internet services are operational right now, with ${plural(summary.incidents.length, 'active incident')}. One status page for the whole internet.`,
+    title: `Is the internet down? Live status of ${total} services — ${BRAND}`,
+    description,
     path: '/',
     level: headline.level,
     body,
     summary,
+    data: [{ '@type': 'WebSite', name: BRAND, alternateName: TAGLINE, url: absolute('/'), description }],
   });
+}
+
+export function renderCategory(category, summary) {
+  const { name, rows, headline } = category;
+  const { win } = summary;
+  const names = rows.map((r) => r.state.provider.name);
+  const troubled = rows.filter((r) => !['operational', 'maintenance', 'pending'].includes(r.state.status)).map((r) => r.state.provider.name);
+  const incidents = summary.incidents.filter((i) => i.state.provider.category === category.key);
+
+  const body = `<main>
+<a class="back" href="/">← All services</a>
+<div class="detail-head"><div><h1>${esc(name)} status</h1><p class="muted">${plural(rows.length, 'service')}, by their own account</p></div></div>
+<div id="live-category" data-live>
+<div class="banner b-${headline.level}">${icon(headline.level)}<div><h2>${esc(headline.title)}</h2><p>${category.operational} of ${rows.length} report normal operation.${troubled.length ? ` Trouble at ${esc(and.format(troubled.slice(0, 5)))}${troubled.length > 5 ? ' and others' : ''}.` : ''}</p></div></div>
+${summary.checkedAt ? `<p class="meta">Last checked ${time(new Date(summary.checkedAt).toISOString())} · refreshes automatically</p>` : ''}
+${incidents.length ? `<section class="block"><h2>Active incidents <span class="count">${incidents.length}</span></h2>${incidents.map(incidentCard).join('')}</section>` : ''}
+<section class="block">
+  <h2>Services</h2>
+  <div class="group">${rows.map((r) => serviceRow(r, win)).join('\n')}</div>
+</section>
+</div>
+</main>`;
+
+  return layout({
+    title: `${name} status: is ${or.format(names.slice(0, 3))} down? — ${BRAND}`,
+    description: `${category.operational} of ${rows.length} ${name} services are operational right now. Live status and outage history for ${rows.length > 6 ? `${names.slice(0, 6).join(', ')} and ${rows.length - 6} more` : and.format(names)}.`,
+    path: categoryPath(category.key),
+    level: headline.level,
+    body,
+    summary,
+    data: [
+      crumbs([BRAND, '/'], [name, categoryPath(category.key)]),
+      { '@type': 'ItemList', name: `${name} status`, itemListElement: rows.map((r, i) => ({ '@type': 'ListItem', position: i + 1, name: r.state.provider.name, url: absolute(`/${r.state.provider.slug}`) })) },
+    ],
+  });
+}
+
+const VERDICT = {
+  operational: (n) => ['No', `${n} reports that everything is working`],
+  degraded: (n) => ['Somewhat', `${n} reports degraded service`],
+  partial_outage: (n) => ['Partly', `${n} reports a partial outage`],
+  major_outage: (n) => ['Yes', `${n} reports a major outage`],
+  maintenance: (n) => ['Not quite', `${n} is under planned maintenance`],
+  unknown: (n) => ['Hard to say', `The ${n} status page itself is not answering, which is rarely a good sign`],
+  pending: (n) => ['Checking', `The first read of the ${n} status page is still in progress`],
+};
+
+function questions(state, host) {
+  const { provider, status } = state;
+  const name = provider.name;
+  const aka = provider.aka ?? [];
+  const [word, detail] = VERDICT[status](name);
+  const open = state.incidents.find((i) => i.impact !== 'maintenance');
+  const cause = open && status !== 'operational' ? `: "${open.name}"` : '';
+  const doubt = status === 'operational' ? ` If it is broken for you anyway, ${name} has not admitted it yet.` : '';
+  const list = [[`Is ${name} down right now?`, `${word}. ${detail}${cause}.${doubt}`]];
+
+  if (state.history) {
+    const last = impactfulIncidents(state).sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+    const ended = last?.resolvedAt ? `lasted ${duration(Math.max(0, Date.parse(last.resolvedAt) - Date.parse(last.startedAt)))}` : 'is still open';
+    list.push([
+      `When was the last ${name} outage?`,
+      last ? `The latest incident on the ${name} status page is "${last.name}". It started ${fmtUtc(last.startedAt)} and ${ended}.` : `There is no incident in the history ${name} publishes.`,
+    ]);
+  }
+  if (aka.length) {
+    list.push([`Does this cover ${or.format(aka)}?`, `Yes. ${and.format(aka)} ${aka.length > 1 ? 'are' : 'is'} reported on the ${name} status page, so an outage there shows up here.`]);
+  }
+  list.push([
+    'Where does this come from?',
+    `From the official ${name} status page at ${host}, read every ${plural(Math.round(POLL_INTERVAL_MS / 60_000), 'minute')}. Nothing here is crowd-sourced: it shows what ${name} itself has confirmed, no more.`,
+  ]);
+  return list;
 }
 
 function updatesList(incident) {
@@ -322,10 +421,22 @@ export function renderDetail(state, summary) {
         .join('')}</div></section>`
     : '';
 
+  const category = summary.categories.find((c) => c.key === provider.category);
+  const siblings = (category?.rows ?? []).filter((r) => r.state !== state).slice(0, 12);
+  const related = siblings.length
+    ? `<p class="related">More in ${esc(category.name)}: ${siblings.map((r) => `<a href="/${esc(r.state.provider.slug)}">${esc(r.state.provider.name)}</a>`).join(', ')}${category.rows.length - 1 > siblings.length ? `, <a href="${categoryPath(category.key)}">all ${category.rows.length}</a>` : ''}</p>`
+    : '';
+  const qa = provider.self ? [] : questions(state, host);
+  const faq = qa.length
+    ? `<section class="block faq"><h2>Is ${esc(provider.name)} down?</h2>${qa.map(([q, a], i) => `${i ? `<h3>${esc(q)}</h3>` : ''}<p>${esc(a)}</p>`).join('')}${related}</section>`
+    : '';
+  const label = provider.aka?.length ? `${provider.name} (${provider.aka[0]})` : provider.name;
+  const [word, detail] = VERDICT[status](provider.name);
+
   const body = `<main>
 <a class="back" href="/">← All services</a>
 <div class="detail-head">
-  <div><h1>${esc(provider.name)}</h1><p class="muted">${esc(CATEGORY_NAME.get(provider.category) ?? '')}</p></div>
+  <div><h1>${esc(provider.name)}</h1><p class="muted">${category ? `<a href="${categoryPath(category.key)}">${esc(category.name)}</a>` : ''}</p></div>
   ${provider.self ? '<span class="btn is-static">You are looking at it</span>' : `<a class="btn" href="${esc(provider.page)}" target="_blank" rel="noopener">Official status page ↗</a>`}
 </div>
 <div id="live-detail" data-live>
@@ -336,22 +447,30 @@ ${active}
 <section class="block"><h2>History</h2>${history}</section>
 ${componentList(state)}
 ${pastList}
+${faq}
 </div>
 </main>`;
 
+  const steps = [[BRAND, '/'], category && [category.name, categoryPath(category.key)], [provider.name, `/${provider.slug}`]].filter(Boolean);
   return layout({
-    title: `${provider.name} status — ${BRAND}`,
-    description: `${provider.name} is currently: ${STATUS_LABEL[status]}. Live status, active incidents and ${win.days}-day history, ${provider.self ? 'measured by the site itself' : `straight from ${host}`}.`,
+    title: provider.self ? `${provider.name} status — ${BRAND}` : `Is ${label} down? Live status and outage history — ${BRAND}`,
+    description: provider.self
+      ? `${provider.name} is currently: ${STATUS_LABEL[status]}. Live status, active incidents and ${win.days}-day history, measured by the site itself.`
+      : `${word}. ${detail}. Live ${provider.name} status, open incidents and ${win.days}-day outage history, straight from ${host}.`,
     path: `/${provider.slug}`,
     level,
     body,
     summary,
+    data: [
+      crumbs(...steps),
+      qa.length && { '@type': 'FAQPage', mainEntity: qa.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) },
+    ].filter(Boolean),
   });
 }
 
 export function renderNotFound(summary) {
   const body = `<main><div class="banner b-pending">${icon('bad')}<div><h1>404 — Page Not Found</h1><p>For once, this outage is ours. There is no such page.</p></div></div><p class="meta"><a href="/">← Back to the internet</a></p></main>`;
-  return layout({ title: `Not found — ${BRAND}`, description: 'Page not found.', path: '/', level: 'pending', body, summary });
+  return layout({ title: `Not found — ${BRAND}`, description: 'Page not found.', path: '/', level: 'pending', body, summary, index: false });
 }
 
 const FAVICON_COLOR = { ok: '#2a9456', warn: '#eeb024', partial: '#e0672b', bad: '#cf3b34', maint: '#6a55c9', pending: '#98a096' };

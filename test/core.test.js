@@ -6,7 +6,8 @@ import { headline } from '../src/summary.js';
 import { Monitor } from '../src/monitor.js';
 import { PROVIDERS } from '../src/providers.js';
 import { ADAPTERS } from '../src/adapters/index.js';
-import { renderDetail, renderHome } from '../src/render.js';
+import { renderCategory, renderDetail, renderHome } from '../src/render.js';
+import { feed, sitemap } from '../src/feeds.js';
 import { buildSummary } from '../src/summary.js';
 
 const NOW = Date.parse('2026-11-18T12:00:00Z');
@@ -149,10 +150,29 @@ test('pages escape everything a provider sends', () => {
     incidents: [{ ...inc('i', 'minor', at(0, -1)), name: evil, status: evil, url: 'https://status.x.test/i?a=1&b="2', updates: [{ at: at(0), status: evil, body: `${evil}</p><script>alert(2)</script>` }] }],
   });
   const summary = buildSummary([s], NOW);
-  for (const page of [renderHome(summary), renderDetail(s, summary)]) {
+  for (const page of [renderHome(summary), renderDetail(s, summary), renderCategory(summary.categories[0], summary), feed([s], NOW)]) {
     assert.ok(!page.includes('<img'), 'raw tag leaked');
     assert.ok(!page.includes('<script>alert'), 'raw script leaked');
     assert.ok(page.includes('&lt;img src=x onerror=alert(1)&gt;'));
     assert.ok(page.includes('X &amp; Co'));
   }
+});
+
+test('service pages answer the question people search for', () => {
+  const s = state({
+    provider: { slug: 'x', name: 'X', category: 'dev', page: 'https://status.x.test', aka: ['Xbox'] },
+    status: 'partial_outage',
+    incidents: [inc('i', 'major', at(0, -1))],
+    history: [inc('old', 'minor', at(3), at(3, 2))],
+  });
+  const summary = buildSummary([s], NOW);
+  const page = renderDetail(s, summary);
+  assert.match(page, /<title>Is X \(Xbox\) down\? /);
+  assert.match(page, /Partly\. X reports a partial outage/);
+  assert.match(page, /"@type":"FAQPage"/);
+  assert.match(page, /Does this cover Xbox\?/);
+
+  const map = sitemap(summary);
+  assert.ok(map.includes('/x</loc>'));
+  assert.ok(map.includes('/status/developer-tools</loc>'));
 });

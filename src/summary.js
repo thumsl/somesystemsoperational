@@ -1,9 +1,16 @@
 import { HISTORY_DAYS } from './config.js';
-import { CATEGORIES } from './providers.js';
+import { CATEGORIES, CATEGORY_SLUG } from './providers.js';
 import { IMPACT_RANK, STATUS_RANK } from './normalize.js';
 import { DAY, historyWindow, internetDays, providerDays, quietTime, startedWithin } from './history.js';
 
 const isAffected = (status) => STATUS_RANK[status] > 0;
+const majorTier1 = (states) => states.filter((s) => s.provider.tier1 && s.status === 'major_outage').map((s) => s.provider.name);
+
+function tally(states) {
+  const counts = { operational: 0, degraded: 0, partial_outage: 0, major_outage: 0, maintenance: 0, unknown: 0, pending: 0 };
+  for (const s of states) counts[s.status] = (counts[s.status] ?? 0) + 1;
+  return counts;
+}
 
 export function headline(counts, total, tier1Major) {
   const affected = counts.degraded + counts.partial_outage + counts.major_outage;
@@ -18,13 +25,9 @@ export function headline(counts, total, tier1Major) {
 
 export function buildSummary(states, now) {
   const win = historyWindow(now, HISTORY_DAYS);
-  const counts = { operational: 0, degraded: 0, partial_outage: 0, major_outage: 0, maintenance: 0, unknown: 0, pending: 0 };
-  const rows = states.map((state) => {
-    counts[state.status] = (counts[state.status] ?? 0) + 1;
-    return { state, days: providerDays(state, win, now) };
-  });
-
-  const tier1Major = states.filter((s) => s.provider.tier1 && s.status === 'major_outage').map((s) => s.provider.name);
+  const counts = tally(states);
+  const rows = states.map((state) => ({ state, days: providerDays(state, win, now) }));
+  const tier1Major = majorTier1(states);
 
   const incidents = states
     .flatMap((state) => state.incidents.filter((i) => i.impact !== 'maintenance').map((incident) => ({ state, incident })))
@@ -38,9 +41,12 @@ export function buildSummary(states, now) {
     const list = rows
       .filter((r) => r.state.provider.category === key)
       .sort((a, b) => Number(Boolean(b.state.provider.tier1)) - Number(Boolean(a.state.provider.tier1)));
+    const members = list.map((r) => r.state);
     return {
       key,
       name,
+      slug: CATEGORY_SLUG.get(key),
+      headline: headline(tally(members), members.length, majorTier1(members)),
       rows: list,
       operational: list.filter((r) => r.state.status === 'operational' || r.state.status === 'maintenance').length,
       affected: list.filter((r) => isAffected(r.state.status)).length,

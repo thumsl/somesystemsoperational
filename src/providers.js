@@ -297,5 +297,20 @@ sp('vrchat', 'VRChat', 'consumer', 'https://status.vrchat.com');
 is('kagi', 'Kagi', 'consumer', 'https://status.kagi.com');
 bs('brave', 'Brave', 'consumer', 'https://status.brave.com');
 
+const AKA = {
+  aws: ['AWS', 'S3', 'EC2'],
+  'google-cloud': ['GCP'],
+  openai: ['ChatGPT', 'Sora'],
+  github: ['GitHub Actions', 'Copilot'],
+  'microsoft-365': ['Outlook', 'Teams', 'OneDrive'],
+  'google-workspace': ['Gmail', 'Google Drive', 'Google Docs', 'Google Meet'],
+  apple: ['iCloud', 'App Store', 'Apple Music'],
+  'epic-games': ['Fortnite'],
+  'playstation-network': ['PSN'],
+  proton: ['Proton Mail'],
+};
+for (const p of list) p.aka = AKA[p.slug] ?? [];
+
+export const CATEGORY_SLUG = new Map(CATEGORIES.map(([key, name]) => [key, name.toLowerCase().replace(/[^a-z0-9]+/g, '-')]));
 export const PROVIDERS = list;
 export const PROVIDERS_BY_SLUG = new Map(list.map((p) => [p.slug, p]));
