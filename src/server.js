@@ -1,54 +1,114 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { BRAND, PORT, PUBLIC_URL } from './config.js';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
+import { brotliCompressSync, constants as zlib, gzipSync } from 'node:zlib';
+import { BRAND, CLIENT_IP_HEADER, DATA_DIR, POLL_INTERVAL_MS, PORT, PUBLIC_URL, RATE_LIMIT_BURST, RATE_LIMIT_PER_SEC, SELF_SLUG } from './config.js';
+import * as fetcher from './fetcher.js';
 import { Monitor } from './monitor.js';
 import { CATEGORIES, PROVIDERS, PROVIDERS_BY_SLUG } from './providers.js';
+import { bucketKey, clientIp, isLoopback, RateLimiter } from './ratelimit.js';
 import { renderDetail, renderFavicon, renderHome, renderNotFound, setAssetVersion } from './render.js';
+import { SelfMonitor } from './self.js';
 import { buildSummary } from './summary.js';
 
-const asset = (name) => readFileSync(new URL(`../public/${name}`, import.meta.url));
-const ASSETS = {
-  '/assets/style.css': { body: asset('style.css'), type: 'text/css; charset=utf-8' },
-  '/assets/app.js': { body: asset('app.js'), type: 'text/javascript; charset=utf-8' },
-};
-setAssetVersion(
-  createHash('sha256')
-    .update(Buffer.concat(Object.values(ASSETS).map((a) => a.body)))
-    .digest('hex')
-    .slice(0, 10),
-);
-
-const monitor = new Monitor(PROVIDERS);
-
-// Rendering 250 services is cheap but not free; reuse the result until the data changes.
-const cache = new Map();
-function cached(key, build) {
-  const hit = cache.get(key);
-  const now = Date.now();
-  if (hit && (hit.version === monitor.version || now - hit.at < 5_000)) return hit.value;
-  const value = build();
-  cache.set(key, { version: monitor.version, at: now, value });
-  return value;
-}
-const summary = () => cached('summary', () => buildSummary(monitor.all(), Date.now()));
-
+// ── Responses are built once, compressed once, and served from memory ───────────────────
 const SECURITY_HEADERS = {
   'content-security-policy': "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
 };
+// Short browser cache, slightly longer shared cache, and permission for a CDN to keep
+// serving the last good copy if this server is slow or gone.
+const PAGE_CACHE = 'public, max-age=15, s-maxage=30, stale-while-revalidate=120, stale-if-error=86400';
+const API_CACHE = 'public, max-age=30, stale-while-revalidate=120, stale-if-error=86400';
+const FOREVER = 'public, max-age=31536000, immutable';
 
-function send(req, res, status, type, body, headers = {}) {
-  const buffer = Buffer.isBuffer(body) ? body : Buffer.from(body);
-  res.writeHead(status, { 'content-type': type, 'content-length': buffer.length, ...SECURITY_HEADERS, ...headers });
-  res.end(req.method === 'HEAD' ? undefined : buffer);
+function pack(type, body, cacheControl, extra = {}) {
+  const raw = Buffer.isBuffer(body) ? body : Buffer.from(body);
+  const compress = raw.length > 1024;
+  return {
+    raw,
+    gzip: compress ? gzipSync(raw, { level: 6 }) : null,
+    br: compress ? brotliCompressSync(raw, { params: { [zlib.BROTLI_PARAM_QUALITY]: 5, [zlib.BROTLI_PARAM_SIZE_HINT]: raw.length } }) : null,
+    etag: `W/"${createHash('sha1').update(raw).digest('base64url').slice(0, 16)}"`,
+    headers: { 'content-type': type, 'cache-control': cacheControl, vary: 'accept-encoding', ...SECURITY_HEADERS, ...extra },
+  };
 }
-const html = (req, res, status, body) => send(req, res, status, 'text/html; charset=utf-8', body, { 'cache-control': 'public, max-age=15' });
-const json = (req, res, body) =>
-  send(req, res, 200, 'application/json; charset=utf-8', JSON.stringify(body), { 'cache-control': 'public, max-age=30', 'access-control-allow-origin': '*' });
 
-// The API speaks the Statuspage dialect, so anything that can read a status page can read this one.
+function respond(req, res, status, entry) {
+  const headers = { ...entry.headers, etag: entry.etag };
+  if (status === 200 && req.headers['if-none-match'] === entry.etag) {
+    res.writeHead(304, headers);
+    return res.end();
+  }
+  const accepts = String(req.headers['accept-encoding'] || '');
+  let body = entry.raw;
+  if (entry.br && /\bbr\b/.test(accepts)) {
+    body = entry.br;
+    headers['content-encoding'] = 'br';
+  } else if (entry.gzip && /\bgzip\b/.test(accepts)) {
+    body = entry.gzip;
+    headers['content-encoding'] = 'gzip';
+  }
+  headers['content-length'] = body.length;
+  res.writeHead(status, headers);
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
+
+function plain(req, res, status, text, headers = {}) {
+  res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'content-length': Buffer.byteLength(text), 'cache-control': 'no-store', ...SECURITY_HEADERS, ...headers });
+  res.end(req.method === 'HEAD' ? undefined : text);
+}
+
+// ── Static files, addressed by content hash so they can be cached forever ───────────────
+const file = (name) => readFileSync(new URL(`../public/${name}`, import.meta.url));
+const css = file('style.css');
+const js = file('app.js');
+const ASSET_VERSION = createHash('sha256').update(Buffer.concat([css, js])).digest('hex').slice(0, 10);
+setAssetVersion(ASSET_VERSION);
+const STATIC = new Map([
+  [`/assets/${ASSET_VERSION}/style.css`, pack('text/css; charset=utf-8', css, FOREVER)],
+  [`/assets/${ASSET_VERSION}/app.js`, pack('text/javascript; charset=utf-8', js, FOREVER)],
+  ['/robots.txt', pack('text/plain; charset=utf-8', 'User-agent: *\nAllow: /\n', 'public, max-age=86400')],
+]);
+for (const level of ['ok', 'warn', 'partial', 'bad', 'maint', 'pending']) {
+  STATIC.set(`/favicon-${level}.svg`, pack('image/svg+xml', renderFavicon(level), 'public, max-age=604800'));
+}
+
+// ── State ───────────────────────────────────────────────────────────────────────────────
+const self = new SelfMonitor({ file: DATA_DIR ? `${DATA_DIR.replace(/\/+$/, '')}/self.json` : null, pollIntervalMs: POLL_INTERVAL_MS });
+const monitor = new Monitor(PROVIDERS, {
+  ctx: { ...fetcher, now: () => Date.now(), self: () => self.snapshot() },
+  onCycle: (cycle) => self.recordCycle(cycle),
+});
+const limiter = new RateLimiter({ capacity: RATE_LIMIT_BURST, refillPerSec: RATE_LIMIT_PER_SEC });
+
+const loopDelay = monitorEventLoopDelay({ resolution: 20 });
+loopDelay.enable();
+setInterval(() => {
+  self.recordLoopDelay(loopDelay.max / 1e6);
+  loopDelay.reset();
+  monitor.apply(SELF_SLUG, self.tick());
+  limiter.prune();
+}, 15_000).unref();
+
+// Rendering 250 services is cheap but not free; reuse the result until the data changes,
+// and never rebuild more than once every few seconds no matter how many requests arrive.
+const memo = new Map();
+function cached(key, build) {
+  const hit = memo.get(key);
+  const now = Date.now();
+  if (hit && (hit.version === monitor.version || now - hit.at < 5_000)) return hit.value;
+  const value = build();
+  memo.set(key, { version: monitor.version, at: now, value });
+  return value;
+}
+const summary = () => cached('summary', () => buildSummary(monitor.all(), Date.now()));
+const page = (key, render) => cached(key, () => pack('text/html; charset=utf-8', render(), PAGE_CACHE));
+const api = (key, build) => cached(key, () => pack('application/json; charset=utf-8', JSON.stringify(build()), API_CACHE, { 'access-control-allow-origin': '*' }));
+
+// ── API: the Statuspage dialect, so anything that can read a status page can read this one ─
 const API_STATUS = { operational: 'operational', degraded: 'degraded_performance', partial_outage: 'partial_outage', major_outage: 'major_outage', maintenance: 'under_maintenance', unknown: 'unknown', pending: 'unknown' };
 const API_INDICATOR = { ok: 'none', warn: 'minor', bad: 'major', pending: 'none' };
 const CATEGORY_NAME = new Map(CATEGORIES);
@@ -69,7 +129,7 @@ function apiSummary(s) {
       name: state.provider.name,
       status: API_STATUS[state.status],
       group: CATEGORY_NAME.get(state.provider.category),
-      source: state.provider.page,
+      source: state.provider.self ? PUBLIC_URL || null : state.provider.page,
       active_incidents: state.incidents.length,
       updated_at: state.okAt ? new Date(state.okAt).toISOString() : null,
     })),
@@ -86,39 +146,69 @@ function apiSummary(s) {
   };
 }
 
-const server = createServer((req, res) => {
-  let path;
-  try {
-    path = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-  } catch {
-    return send(req, res, 400, 'text/plain; charset=utf-8', 'Bad request');
-  }
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    return send(req, res, 405, 'text/plain; charset=utf-8', 'Method not allowed', { allow: 'GET, HEAD' });
-  }
+// ── Requests ────────────────────────────────────────────────────────────────────────────
+function handle(req, res) {
+  const ip = clientIp(req, CLIENT_IP_HEADER);
+  const url = req.url || '/';
+  // Query strings are never used, so they are dropped rather than parsed: a random one
+  // cannot be used to dodge the cache.
+  const path = url.split('?', 1)[0];
 
   if (path === '/health') {
     // Report healthy only once there is something to show, so a deploy never swaps in an empty page.
     const ready = monitor.warm || Date.now() - monitor.startedAt > 90_000;
-    return send(req, res, ready ? 200 : 503, 'text/plain; charset=utf-8', ready ? 'ok' : 'warming up', { 'cache-control': 'no-store' });
+    return plain(req, res, ready ? 200 : 503, ready ? 'ok' : 'warming up');
   }
-  if (ASSETS[path]) return send(req, res, 200, ASSETS[path].type, ASSETS[path].body, { 'cache-control': 'public, max-age=31536000, immutable' });
-  if (path === '/favicon.svg' || path === '/favicon.ico') {
-    const level = new URL(req.url, 'http://localhost').searchParams.get('s') || summary().headline.level;
-    return send(req, res, 200, 'image/svg+xml', renderFavicon(level), { 'cache-control': 'public, max-age=300' });
+
+  if (!isLoopback(ip)) {
+    const key = bucketKey(ip);
+    if (!limiter.take(key)) {
+      self.recordRequest(true);
+      return plain(req, res, 429, 'Too many requests. Even this page has limits.\n', { 'retry-after': String(limiter.retryAfter(key)) });
+    }
   }
-  if (path === '/robots.txt') return send(req, res, 200, 'text/plain; charset=utf-8', 'User-agent: *\nAllow: /\n', { 'cache-control': 'public, max-age=86400' });
-  if (path === '/api/v2/summary.json') return json(req, res, apiSummary(summary()));
-  if (path === '/api/v2/status.json') return json(req, res, apiStatus(summary()));
-  if (path === '/') return html(req, res, 200, cached('home', () => renderHome(summary())));
+  self.recordRequest(false);
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return plain(req, res, 405, 'Method not allowed\n', { allow: 'GET, HEAD', connection: 'close' });
+  }
+  if (url.length > 2048) return plain(req, res, 414, 'URI too long\n');
+
+  const fixed = STATIC.get(path);
+  if (fixed) return respond(req, res, 200, fixed);
+  if (path === '/') return respond(req, res, 200, page('home', () => renderHome(summary())));
+  if (path === '/api/v2/summary.json') return respond(req, res, 200, api('api:summary', () => apiSummary(summary())));
+  if (path === '/api/v2/status.json') return respond(req, res, 200, api('api:status', () => apiStatus(summary())));
+  if (path === '/favicon.ico' || path === '/favicon.svg') return respond(req, res, 200, STATIC.get(`/favicon-${summary().headline.level}.svg`));
 
   const slug = path.slice(1).replace(/\/$/, '');
-  if (PROVIDERS_BY_SLUG.has(slug)) return html(req, res, 200, cached(`detail:${slug}`, () => renderDetail(monitor.get(slug), summary())));
-  return html(req, res, 404, renderNotFound(summary()));
-});
+  if (PROVIDERS_BY_SLUG.has(slug)) return respond(req, res, 200, page(`detail:${slug}`, () => renderDetail(monitor.get(slug), summary())));
+  return respond(req, res, 404, page('404', () => renderNotFound(summary())));
+}
+
+const server = createServer(
+  {
+    // Slow or oversized requests are dropped early instead of holding a connection open.
+    maxHeaderSize: 8 * 1024,
+    headersTimeout: 8_000,
+    requestTimeout: 15_000,
+    keepAliveTimeout: 10_000,
+    connectionsCheckingInterval: 5_000,
+  },
+  (req, res) => {
+    try {
+      handle(req, res);
+    } catch (err) {
+      console.error('[web] request failed', err);
+      if (!res.headersSent) plain(req, res, 500, 'Internal error. Yes, really.\n');
+      else res.destroy();
+    }
+  },
+);
+server.on('clientError', (_err, socket) => socket.destroy());
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.info(`[web] ${BRAND} listening on :${PORT}, tracking ${PROVIDERS.length} services`);
+  console.info(`[web] ${BRAND} listening on :${PORT}, tracking ${PROVIDERS.length} services${self.persistent ? `, own history in ${DATA_DIR}` : ''}`);
   monitor.start();
 });
 
