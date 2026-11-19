@@ -9,7 +9,7 @@ const touched = (i) => i.updatedAt || i.resolvedAt || i.startedAt;
 
 export function sitemap(summary) {
   const today = new Date(summary.now).toISOString().slice(0, 10);
-  const pages = [['/', today], ...summary.categories.map((c) => [`/status/${c.slug}`, today])];
+  const pages = [['/', today], ['/about'], ['/api'], ...summary.categories.map((c) => [`/status/${c.slug}`, today])];
   for (const c of summary.categories) {
     for (const { state } of c.rows) {
       const latest = impactfulIncidents(state).map(touched).sort().pop();
@@ -67,6 +67,8 @@ export function llms(summary) {
 
 Every status is what the provider itself reports. Each service has its own page at ${PUBLIC_URL}/<service>, answering "is <service> down?".
 
+- [About, and how the data is collected](${PUBLIC_URL}/about)
+- [API documentation](${PUBLIC_URL}/api)
 - [Current status of everything, as JSON](${PUBLIC_URL}/api/v2/summary.json): open API, no key, CORS enabled
 - [Overall status, as JSON](${PUBLIC_URL}/api/v2/status.json)
 - [Incident feed (Atom)](${PUBLIC_URL}/feed.xml)

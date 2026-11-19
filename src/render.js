@@ -94,12 +94,12 @@ function jsonLd(items) {
     .join('\n');
 }
 
-const crumbs = (...steps) => ({
+export const crumbs = (...steps) => ({
   '@type': 'BreadcrumbList',
   itemListElement: steps.map(([name, path], i) => ({ '@type': 'ListItem', position: i + 1, name, item: absolute(path) })),
 });
 
-function layout({ title, description, path, body, level, summary, data = [], index = true }) {
+export function layout({ title, description, path, body, level, summary, data = [], index = true }) {
   const own = summary.self;
   const canonical = PUBLIC_URL && index ? `<link rel="canonical" href="${esc(absolute(path))}">\n<meta property="og:url" content="${esc(absolute(path))}">` : '';
   const verify = GOOGLE_SITE_VERIFICATION ? `<meta name="google-site-verification" content="${esc(GOOGLE_SITE_VERIFICATION)}">` : '';
@@ -143,7 +143,7 @@ ${body}
 <footer class="foot">
   <p>${esc(BRAND)} is an unofficial aggregate of public status pages. Every status shown is reported by the provider itself, so the real situation may be worse. Not affiliated with any of the services listed.</p>
   <p>${browse}</p>
-  <p><a href="/">All services</a> · <a href="/api/v2/summary.json">API</a> · <a href="/feed.xml">Feed</a> · Status of this page: <span id="live-self" data-live>${own ? `<a class="status s-${own.status}" href="/${esc(own.provider.slug)}">${STATUS_LABEL[own.status]}</a>` : 'unknown'}</span></p>
+  <p><a href="/">All services</a> · <a href="/about">About</a> · <a href="/api">API</a> · <a href="/feed.xml">Feed</a> · Status of this page: <span id="live-self" data-live>${own ? `<a class="status s-${own.status}" href="/${esc(own.provider.slug)}">${STATUS_LABEL[own.status]}</a>` : 'unknown'}</span></p>
   ${donate()}
 </footer>
 </div>

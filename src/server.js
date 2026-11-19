@@ -9,6 +9,7 @@ import * as fetcher from './fetcher.js';
 import { changed } from './indexnow.js';
 import { Monitor } from './monitor.js';
 import { CATEGORIES, CATEGORY_SLUG, PROVIDERS, PROVIDERS_BY_SLUG } from './providers.js';
+import { renderAbout, renderApi } from './pages.js';
 import { bucketKey, clientIp, isLoopback, RateLimiter } from './ratelimit.js';
 import { renderCategory, renderDetail, renderFavicon, renderHome, renderNotFound, setAssetVersion } from './render.js';
 import { SelfMonitor } from './self.js';
@@ -190,6 +191,8 @@ function handle(req, res) {
   if (path === '/api/v2/status.json') return respond(req, res, 200, api('api:status', () => apiStatus(summary())));
   if (path === '/favicon.ico' || path === '/favicon.svg') return respond(req, res, 200, STATIC.get(`/favicon-${summary().headline.level}.svg`));
 
+  if (path === '/about') return respond(req, res, 200, page('about', () => renderAbout(summary())));
+  if (path === '/api') return respond(req, res, 200, page('api', () => renderApi(summary())));
   if (path === '/sitemap.xml') return respond(req, res, 200, doc('sitemap', 'application/xml; charset=utf-8', () => sitemap(summary())));
   if (path === '/feed.xml') return respond(req, res, 200, doc('feed', 'application/atom+xml; charset=utf-8', () => feed(monitor.all(), Date.now())));
   if (path === '/llms.txt') return respond(req, res, 200, doc('llms', 'text/plain; charset=utf-8', () => llms(summary())));

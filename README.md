@@ -78,6 +78,7 @@ sp('example', 'Example', 'dev', 'https://status.example.com');
 | `/` | The internet |
 | `/<slug>` | One service: components, active incidents, history |
 | `/status/<category>` | One category, e.g. `/status/developer-tools` |
+| `/about`, `/api` | What this is, and the API docs |
 | `/feed.xml` | Latest incidents everywhere, as an Atom feed |
 | `/sitemap.xml`, `/llms.txt` | For crawlers |
 | `/api/v2/summary.json` | Everything, as JSON |
