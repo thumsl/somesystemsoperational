@@ -160,17 +160,17 @@ test('pages escape everything a provider sends', () => {
 
 test('service pages answer the question people search for', () => {
   const s = state({
-    provider: { slug: 'x', name: 'X', category: 'dev', page: 'https://status.x.test', aka: ['Xbox'] },
+    provider: { slug: 'x', name: 'X', category: 'dev', page: 'https://status.x.test', aka: ['Zune'] },
     status: 'partial_outage',
     incidents: [inc('i', 'major', at(0, -1))],
     history: [inc('old', 'minor', at(3), at(3, 2))],
   });
   const summary = buildSummary([s], NOW);
   const page = renderDetail(s, summary);
-  assert.match(page, /<title>Is X \(Xbox\) down\? /);
+  assert.match(page, /<title>Is X \(Zune\) down\? /);
   assert.match(page, /Partly\. X reports a partial outage/);
   assert.match(page, /"@type":"FAQPage"/);
-  assert.match(page, /Does this cover Xbox\?/);
+  assert.match(page, /Does this cover Zune\?/);
 
   const map = sitemap(summary);
   assert.ok(map.includes('/x</loc>'));
