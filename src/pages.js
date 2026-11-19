@@ -1,4 +1,4 @@
-import { BRAND, HISTORY_DAYS, PUBLIC_URL, RATE_LIMIT_PER_SEC, SELF_SLUG, UMAMI_SCRIPT } from './config.js';
+import { BRAND, HISTORY_DAYS, PUBLIC_URL, RATE_LIMIT_PER_SEC, SELF_SLUG, SOURCE_URL, UMAMI_SCRIPT } from './config.js';
 import { crumbs, esc, layout } from './render.js';
 
 const EXAMPLE = `{
@@ -51,7 +51,7 @@ export function renderAbout(summary) {
 <p>${summary.total} services across ${summary.categories.length} categories: ${categories}. To be listed, a service needs a public status page that a machine can read.</p>
 
 <h2>For developers</h2>
-<p>Everything on the site is available as JSON, with no key and no signup. See the <a href="/api">API</a>. There is also an <a href="/feed.xml">Atom feed</a> of every incident.</p>
+<p>Everything on the site is available as JSON, with no key and no signup. See the <a href="/api">API</a>. There is also an <a href="/feed.xml">Atom feed</a> of every incident.${SOURCE_URL ? ` The code is open source under the MIT license, <a href="${esc(SOURCE_URL)}" rel="noopener">on GitHub</a>. It has no dependencies, so you can run your own.` : ''}</p>
 
 <h2>Privacy</h2>
 <ul>

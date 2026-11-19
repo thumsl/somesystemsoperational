@@ -1,4 +1,4 @@
-import { BRAND, DONATE, GOOGLE_SITE_VERIFICATION, HISTORY_DAYS, POLL_INTERVAL_MS, PUBLIC_URL, TAGLINE, UMAMI_SCRIPT, UMAMI_WEBSITE_ID } from './config.js';
+import { BRAND, DONATE, GOOGLE_SITE_VERIFICATION, HISTORY_DAYS, POLL_INTERVAL_MS, PUBLIC_URL, SOURCE_URL, TAGLINE, UMAMI_SCRIPT, UMAMI_WEBSITE_ID } from './config.js';
 import { DAY, historyWindow, impactfulIncidents, providerDays } from './history.js';
 import { clip } from './normalize.js';
 
@@ -143,7 +143,7 @@ ${body}
 <footer class="foot">
   <p>${esc(BRAND)} is an unofficial aggregate of public status pages. Every status shown is reported by the provider itself, so the real situation may be worse. Not affiliated with any of the services listed.</p>
   <p>${browse}</p>
-  <p><a href="/">All services</a> · <a href="/about">About</a> · <a href="/api">API</a> · <a href="/feed.xml">Feed</a> · Status of this page: <span id="live-self" data-live>${own ? `<a class="status s-${own.status}" href="/${esc(own.provider.slug)}">${STATUS_LABEL[own.status]}</a>` : 'unknown'}</span></p>
+  <p><a href="/">All services</a> · <a href="/about">About</a> · <a href="/api">API</a> · <a href="/feed.xml">Feed</a> · ${SOURCE_URL ? `<a href="${esc(SOURCE_URL)}" rel="noopener" data-umami-event="Source">Source</a> · ` : ''}Status of this page: <span id="live-self" data-live>${own ? `<a class="status s-${own.status}" href="/${esc(own.provider.slug)}">${STATUS_LABEL[own.status]}</a>` : 'unknown'}</span></p>
   ${donate()}
 </footer>
 </div>

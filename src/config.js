@@ -13,6 +13,7 @@ export const UMAMI_SCRIPT = env.UMAMI_SCRIPT || '';
 export const UMAMI_WEBSITE_ID = env.UMAMI_WEBSITE_ID || '';
 export const GOOGLE_SITE_VERIFICATION = env.GOOGLE_SITE_VERIFICATION || '';
 export const INDEXNOW_KEY = /^[a-f0-9]{8,128}$/.test(env.INDEXNOW_KEY || '') ? env.INDEXNOW_KEY : '';
+export const SOURCE_URL = env.SOURCE_URL ?? 'https://github.com/thumsl/somesystemsoperational';
 export const DONATE = {
   BTC: env.DONATE_BTC ?? 'bc1qgq6r93af4n0a9c52jacadhzh90y6mf9mlhn8le',
   ETH: env.DONATE_ETH ?? '0x5d882FEBEA673043332Befed8e96134C596c3647',
