@@ -430,7 +430,8 @@ export function renderDetail(state, summary) {
   const faq = qa.length
     ? `<section class="block faq"><h2>Is ${esc(provider.name)} down?</h2>${qa.map(([q, a], i) => `${i ? `<h3>${esc(q)}</h3>` : ''}<p>${esc(a)}</p>`).join('')}${related}</section>`
     : '';
-  const label = provider.aka?.length ? `${provider.name} (${provider.aka[0]})` : provider.name;
+  const alias = provider.aka?.find((a) => !a.includes(provider.name));
+  const label = alias ? `${provider.name} (${alias})` : provider.name;
   const [word, detail] = VERDICT[status](provider.name);
 
   const body = `<main>

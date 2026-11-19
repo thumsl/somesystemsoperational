@@ -301,7 +301,7 @@ const AKA = {
   aws: ['AWS', 'S3', 'EC2'],
   'google-cloud': ['GCP'],
   openai: ['ChatGPT', 'Sora'],
-  github: ['GitHub Actions', 'Copilot'],
+  github: ['GitHub Actions', 'GitHub Copilot'],
   'microsoft-365': ['Outlook', 'Teams', 'OneDrive'],
   'google-workspace': ['Gmail', 'Google Drive', 'Google Docs', 'Google Meet'],
   apple: ['iCloud', 'App Store', 'Apple Music'],
