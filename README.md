@@ -50,4 +50,5 @@ Anything else needs an adapter in `src/adapters/`.
 Everything is available as JSON at `/api/v2/summary.json`, no key needed.
 [Docs](https://somesystemsoperational.com/api).
 
-Not affiliated with any of the services listed.
+Not affiliated with any of the services listed. Code is MIT licensed; the bundled
+Instrument Sans font has its own license in `public/`.
