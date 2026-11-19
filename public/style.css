@@ -242,6 +242,13 @@ body.only-issues .row[data-ok="1"], .row.no-match, .group.is-empty { display: no
 .foot a { color: var(--muted); }
 .foot .status { font-weight: 600; text-decoration: none; }
 .foot .status:hover { text-decoration: underline; }
+.donate { margin-top: 18px; }
+.donate ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.donate li { display: grid; grid-template-columns: 30px minmax(0, max-content) auto; justify-content: start; align-items: baseline; gap: 8px; }
+.donate b { font-weight: 600; color: var(--text); }
+.donate code { font: 12.5px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.copy { padding: 1px 9px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.copy:hover { background: var(--soft); color: var(--text); }
 
 @media (max-width: 760px) {
   .stats { grid-template-columns: repeat(2, 1fr); }

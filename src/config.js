@@ -11,6 +11,10 @@ export const RATE_LIMIT_PER_SEC = Number(env.RATE_LIMIT_PER_SEC || 1.5);
 export const PUBLIC_URL = (env.PUBLIC_URL || '').replace(/\/+$/, '');
 export const UMAMI_SCRIPT = env.UMAMI_SCRIPT || '';
 export const UMAMI_WEBSITE_ID = env.UMAMI_WEBSITE_ID || '';
+export const DONATE = {
+  BTC: env.DONATE_BTC ?? 'bc1qgq6r93af4n0a9c52jacadhzh90y6mf9mlhn8le',
+  ETH: env.DONATE_ETH ?? '0x5d882FEBEA673043332Befed8e96134C596c3647',
+};
 
 export const POLL_INTERVAL_MS = Number(env.POLL_INTERVAL_MS || 120_000);
 export const HISTORY_INTERVAL_MS = Number(env.HISTORY_INTERVAL_MS || 20 * 60_000);

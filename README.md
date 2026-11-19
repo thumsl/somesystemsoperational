@@ -22,6 +22,7 @@ rebuilt from the providers' own feeds within a minute of starting.
 | `PUBLIC_URL` | (none) | Public origin, used for canonical links and in the bot user agent |
 | `UMAMI_SCRIPT` | (none) | URL of an Umami `script.js`. Analytics stay off unless this and the id are set |
 | `UMAMI_WEBSITE_ID` | (none) | Website id from Umami |
+| `DONATE_BTC`, `DONATE_ETH` | the author's | Donation addresses in the footer. Set to an empty string to hide one |
 | `BRAND_NAME` | `Some Systems Operational` | Site name |
 | `DATA_DIR` | (none; `/data` in the image) | Where the site keeps its own incident history. Mount a volume to keep it across deploys |
 | `CLIENT_IP_HEADER` | `x-forwarded-for` | Header with the visitor's address, used for rate limiting. Behind Cloudflare: `cf-connecting-ip` |

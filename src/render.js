@@ -1,4 +1,4 @@
-import { BRAND, HISTORY_DAYS, PUBLIC_URL, TAGLINE, UMAMI_SCRIPT, UMAMI_WEBSITE_ID } from './config.js';
+import { BRAND, DONATE, HISTORY_DAYS, PUBLIC_URL, TAGLINE, UMAMI_SCRIPT, UMAMI_WEBSITE_ID } from './config.js';
 import { CATEGORIES } from './providers.js';
 import { DAY, historyWindow, impactfulIncidents, providerDays } from './history.js';
 import { clip } from './normalize.js';
@@ -75,6 +75,16 @@ function tracker() {
   return `<script src="${esc(UMAMI_SCRIPT)}" data-website-id="${esc(UMAMI_WEBSITE_ID)}"${domain} defer></script>`;
 }
 
+function donate() {
+  const coins = Object.entries(DONATE).filter(([, address]) => address);
+  if (!coins.length) return '';
+  const items = coins.map(
+    ([coin, address]) =>
+      `<li><b>${esc(coin)}</b> <code>${esc(address)}</code> <button type="button" class="copy" data-copy="${esc(address)}" data-umami-event="Copy address" data-umami-event-coin="${esc(coin)}">Copy</button></li>`,
+  );
+  return `<div class="donate"><p>Donations keep some systems operational:</p><ul>${items.join('')}</ul></div>`;
+}
+
 function layout({ title, description, path, body, level, summary }) {
   const own = summary.self;
   const canonical = PUBLIC_URL ? `<link rel="canonical" href="${esc(PUBLIC_URL + path)}">` : '';
@@ -111,6 +121,7 @@ ${body}
 <footer class="foot">
   <p>${esc(BRAND)} is an unofficial aggregate of public status pages. Every status shown is reported by the provider itself, so the real situation may be worse. Not affiliated with any of the services listed.</p>
   <p><a href="/">All services</a> · <a href="/api/v2/summary.json">API</a> · Status of this page: <span id="live-self" data-live>${own ? `<a class="status s-${own.status}" href="/${esc(own.provider.slug)}">${STATUS_LABEL[own.status]}</a>` : 'unknown'}</span></p>
+  ${donate()}
 </footer>
 </div>
 <div class="tip" id="tip" hidden></div>

@@ -107,6 +107,18 @@
     if (event.key === 'Escape' && pop) pop.hidden = true;
   });
 
+  document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-copy]');
+    if (!button) return;
+    try {
+      await navigator.clipboard.writeText(button.dataset.copy);
+      button.textContent = 'Copied';
+    } catch {
+      button.textContent = 'Clipboard said no';
+    }
+    setTimeout(() => (button.textContent = 'Copy'), 1500);
+  });
+
   const closed = new Set();
   const opened = new Set();
   document.addEventListener(
