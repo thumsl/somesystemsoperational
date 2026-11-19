@@ -160,7 +160,6 @@ function handle(req, res) {
   const path = url.split('?', 1)[0];
 
   if (path === '/health') {
-    // unhealthy until the first round is in, otherwise a deploy swaps in an empty page
     const ready = monitor.warm || Date.now() - monitor.startedAt > 90_000;
     return plain(req, res, ready ? 200 : 503, ready ? 'ok' : 'warming up');
   }

@@ -12,7 +12,7 @@ export class RateLimiter {
     let bucket = this.buckets.get(key);
     if (bucket) {
       bucket.tokens = Math.min(this.capacity, bucket.tokens + ((now - bucket.at) / 1000) * this.refillPerSec);
-      this.buckets.delete(key); // reinserted below so the Map stays ordered by last seen
+      this.buckets.delete(key);
     } else {
       bucket = { tokens: this.capacity, at: now };
       if (this.buckets.size >= this.maxKeys) this.buckets.delete(this.buckets.keys().next().value);
@@ -56,7 +56,6 @@ export function clientIp(req, header = 'x-forwarded-for') {
   const value = req.headers[header];
   const raw = Array.isArray(value) ? value[value.length - 1] : value;
   if (raw) {
-    // the last entry is the one our own proxy added, so it can't be spoofed
     const last = String(raw).split(',').pop().trim();
     if (last) return last;
   }

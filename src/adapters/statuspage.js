@@ -57,7 +57,6 @@ export function parseIncidents(json, pageUrl) {
   const list = Array.isArray(json?.incidents) ? json.incidents : null;
   if (!list) throw new Error('not a Statuspage incident list');
   const history = list.map((i) => toIncident(i, pageUrl)).filter((i) => i.startedAt);
-  // a full page means there are older incidents we can't see
   const fullPage = list.length === 25 || list.length >= 50;
   const oldest = history.reduce((min, i) => (i.startedAt < min ? i.startedAt : min), history[0]?.startedAt ?? null);
   return { history, coverageStart: fullPage ? oldest : null };
