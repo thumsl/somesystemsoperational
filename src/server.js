@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { brotliCompressSync, constants as zlib, gzipSync } from 'node:zlib';
-import { BRAND, CLIENT_IP_HEADER, DATA_DIR, POLL_INTERVAL_MS, PORT, PUBLIC_URL, RATE_LIMIT_BURST, RATE_LIMIT_PER_SEC, SELF_SLUG } from './config.js';
+import { BRAND, CLIENT_IP_HEADER, DATA_DIR, POLL_INTERVAL_MS, PORT, PUBLIC_URL, RATE_LIMIT_BURST, RATE_LIMIT_PER_SEC, SELF_SLUG, UMAMI_SCRIPT } from './config.js';
 import * as fetcher from './fetcher.js';
 import { Monitor } from './monitor.js';
 import { CATEGORIES, PROVIDERS, PROVIDERS_BY_SLUG } from './providers.js';
@@ -12,8 +12,9 @@ import { renderDetail, renderFavicon, renderHome, renderNotFound, setAssetVersio
 import { SelfMonitor } from './self.js';
 import { buildSummary } from './summary.js';
 
+const STATS = UMAMI_SCRIPT ? ` ${new URL(UMAMI_SCRIPT).origin}` : '';
 const SECURITY_HEADERS = {
-  'content-security-policy': "default-src 'none'; style-src 'self'; font-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'content-security-policy': `default-src 'none'; style-src 'self'; font-src 'self'; script-src 'self'${STATS}; img-src 'self' data:; connect-src 'self'${STATS}; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
 };

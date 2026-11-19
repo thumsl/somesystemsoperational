@@ -9,6 +9,8 @@ export const CLIENT_IP_HEADER = (env.CLIENT_IP_HEADER || 'x-forwarded-for').toLo
 export const RATE_LIMIT_BURST = Number(env.RATE_LIMIT_BURST || 90);
 export const RATE_LIMIT_PER_SEC = Number(env.RATE_LIMIT_PER_SEC || 1.5);
 export const PUBLIC_URL = (env.PUBLIC_URL || '').replace(/\/+$/, '');
+export const UMAMI_SCRIPT = env.UMAMI_SCRIPT || '';
+export const UMAMI_WEBSITE_ID = env.UMAMI_WEBSITE_ID || '';
 
 export const POLL_INTERVAL_MS = Number(env.POLL_INTERVAL_MS || 120_000);
 export const HISTORY_INTERVAL_MS = Number(env.HISTORY_INTERVAL_MS || 20 * 60_000);

@@ -1,4 +1,4 @@
-import { BRAND, HISTORY_DAYS, PUBLIC_URL, TAGLINE } from './config.js';
+import { BRAND, HISTORY_DAYS, PUBLIC_URL, TAGLINE, UMAMI_SCRIPT, UMAMI_WEBSITE_ID } from './config.js';
 import { CATEGORIES } from './providers.js';
 import { DAY, historyWindow, impactfulIncidents, providerDays } from './history.js';
 import { clip } from './normalize.js';
@@ -69,6 +69,12 @@ function bar(levels, win, data, label) {
   return `<svg class="bar" viewBox="0 0 ${levels.length * 5 - 1} 10" preserveAspectRatio="none" role="img" aria-label="${esc(label)}" data-l="${levels.map((l) => (l < 0 ? '-' : l)).join('')}" data-end="${end}"${attrs}>${paths}</svg>`;
 }
 
+function tracker() {
+  if (!UMAMI_SCRIPT || !UMAMI_WEBSITE_ID) return '';
+  const domain = PUBLIC_URL ? ` data-domains="${esc(new URL(PUBLIC_URL).hostname)}"` : '';
+  return `<script src="${esc(UMAMI_SCRIPT)}" data-website-id="${esc(UMAMI_WEBSITE_ID)}"${domain} defer></script>`;
+}
+
 function layout({ title, description, path, body, level, summary }) {
   const own = summary.self;
   const canonical = PUBLIC_URL ? `<link rel="canonical" href="${esc(PUBLIC_URL + path)}">` : '';
@@ -90,6 +96,7 @@ ${canonical}
 <link rel="preload" href="/assets/${ASSET_VERSION}/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/${ASSET_VERSION}/style.css">
 <script src="/assets/${ASSET_VERSION}/app.js" defer></script>
+${tracker()}
 </head>
 <body>
 <div class="wrap">
