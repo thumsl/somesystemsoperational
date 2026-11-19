@@ -187,7 +187,7 @@ export function renderHome(summary) {
   const body = `<main>
 <section id="live-hero" data-live>
   <div class="banner b-${headline.level}">${icon(headline.level)}<div><h1>${esc(headline.title)}</h1><p>${esc(sub)}</p></div></div>
-  <p class="meta">${esc(TAGLINE)}${summary.checkedAt ? ` · last checked ${time(new Date(summary.checkedAt).toISOString())}` : ''} · updates every minute</p>
+  <p class="meta">${esc(TAGLINE)}${summary.checkedAt ? ` · last checked ${time(new Date(summary.checkedAt).toISOString())}` : ''} · refreshes automatically</p>
   <div class="stats">${stats}</div>
   <div class="panel">
     <div class="panel-head"><strong>The Internet</strong><span class="muted">${total} services, by their own account</span></div>
