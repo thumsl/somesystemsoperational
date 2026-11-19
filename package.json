@@ -1,8 +1,8 @@
 {
-  "name": "webstatus",
+  "name": "somesystemsoperational",
   "version": "1.0.0",
   "private": true,
-  "description": "One status page for the whole internet: aggregates the public status pages of major platforms.",
+  "description": "One status page for the whole internet",
   "type": "module",
   "engines": { "node": ">=22" },
   "scripts": {
