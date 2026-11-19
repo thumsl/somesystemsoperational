@@ -8,7 +8,7 @@ import { feed, llms, sitemap } from './feeds.js';
 import * as fetcher from './fetcher.js';
 import { changed } from './indexnow.js';
 import { Monitor } from './monitor.js';
-import { CATEGORIES, CATEGORY_SLUG, PROVIDERS, PROVIDERS_BY_SLUG } from './providers.js';
+import { CATEGORY_NAME, CATEGORY_SLUG, PROVIDERS, PROVIDERS_BY_SLUG } from './providers.js';
 import { renderAbout, renderApi } from './pages.js';
 import { bucketKey, clientIp, isLoopback, RateLimiter } from './ratelimit.js';
 import { renderCategory, renderDetail, renderFavicon, renderHome, renderNotFound, setAssetVersion } from './render.js';
@@ -112,13 +112,12 @@ function cached(key, build) {
   return value;
 }
 const summary = () => cached('summary', () => buildSummary(monitor.all(), Date.now()));
-const page = (key, render) => cached(key, () => pack('text/html; charset=utf-8', render(), PAGE_CACHE));
-const doc = (key, type, build) => cached(key, () => pack(type, build(), API_CACHE));
-const api = (key, build) => cached(key, () => pack('application/json; charset=utf-8', JSON.stringify(build()), API_CACHE, { 'access-control-allow-origin': '*' }));
+const page = (key, render) => cached(key, () => pack('text/html; charset=utf-8', render(summary()), PAGE_CACHE));
+const doc = (key, type, build) => cached(key, () => pack(type, build(summary()), API_CACHE));
+const api = (key, build) => cached(key, () => pack('application/json; charset=utf-8', JSON.stringify(build(summary())), API_CACHE, { 'access-control-allow-origin': '*' }));
 
 const API_STATUS = { operational: 'operational', degraded: 'degraded_performance', partial_outage: 'partial_outage', major_outage: 'major_outage', maintenance: 'under_maintenance', unknown: 'unknown', pending: 'unknown' };
 const API_INDICATOR = { ok: 'none', warn: 'minor', bad: 'major', pending: 'none' };
-const CATEGORY_NAME = new Map(CATEGORIES);
 const HOST = PUBLIC_URL ? new URL(PUBLIC_URL).host : '';
 
 function apiStatus(s) {
@@ -154,6 +153,20 @@ function apiSummary(s) {
   };
 }
 
+const favicon = () => STATIC.get(`/favicon-${summary().headline.level}.svg`);
+const ROUTES = new Map([
+  ['/', () => page('home', renderHome)],
+  ['/about', () => page('about', renderAbout)],
+  ['/api', () => page('api', renderApi)],
+  ['/api/v2/summary.json', () => api('api:summary', apiSummary)],
+  ['/api/v2/status.json', () => api('api:status', apiStatus)],
+  ['/sitemap.xml', () => doc('sitemap', 'application/xml; charset=utf-8', sitemap)],
+  ['/feed.xml', () => doc('feed', 'application/atom+xml; charset=utf-8', () => feed(monitor.all(), Date.now()))],
+  ['/llms.txt', () => doc('llms', 'text/plain; charset=utf-8', llms)],
+  ['/favicon.ico', favicon],
+  ['/favicon.svg', favicon],
+]);
+
 function handle(req, res) {
   const ip = clientIp(req, CLIENT_IP_HEADER);
   const url = req.url || '/';
@@ -183,29 +196,21 @@ function handle(req, res) {
   const tidy = `/${path.split('/').filter(Boolean).join('/')}`;
   if (tidy !== path) return redirect(res, tidy + url.slice(path.length));
 
-  const fixed = STATIC.get(path);
-  if (fixed) return respond(req, res, 200, fixed);
-  if (path === '/') return respond(req, res, 200, page('home', () => renderHome(summary())));
-  if (path === '/api/v2/summary.json') return respond(req, res, 200, api('api:summary', () => apiSummary(summary())));
-  if (path === '/api/v2/status.json') return respond(req, res, 200, api('api:status', () => apiStatus(summary())));
-  if (path === '/favicon.ico' || path === '/favicon.svg') return respond(req, res, 200, STATIC.get(`/favicon-${summary().headline.level}.svg`));
-
-  if (path === '/about') return respond(req, res, 200, page('about', () => renderAbout(summary())));
-  if (path === '/api') return respond(req, res, 200, page('api', () => renderApi(summary())));
-  if (path === '/sitemap.xml') return respond(req, res, 200, doc('sitemap', 'application/xml; charset=utf-8', () => sitemap(summary())));
-  if (path === '/feed.xml') return respond(req, res, 200, doc('feed', 'application/atom+xml; charset=utf-8', () => feed(monitor.all(), Date.now())));
-  if (path === '/llms.txt') return respond(req, res, 200, doc('llms', 'text/plain; charset=utf-8', () => llms(summary())));
+  const found = STATIC.get(path) ?? ROUTES.get(path)?.();
+  if (found) return respond(req, res, 200, found);
 
   if (path.startsWith('/status/')) {
-    const category = summary().categories.find((c) => c.slug === path.slice(8));
-    if (category) return respond(req, res, 200, page(`category:${category.key}`, () => renderCategory(category, summary())));
+    const slug = path.slice(8);
+    if (summary().categories.some((c) => c.slug === slug)) {
+      return respond(req, res, 200, page(`category:${slug}`, (s) => renderCategory(s.categories.find((c) => c.slug === slug), s)));
+    }
   }
   const alias = /^\/is-(.+)-down$/.exec(path);
   if (alias && PROVIDERS_BY_SLUG.has(alias[1])) return redirect(res, `/${alias[1]}`);
 
   const slug = path.slice(1);
-  if (PROVIDERS_BY_SLUG.has(slug)) return respond(req, res, 200, page(`detail:${slug}`, () => renderDetail(monitor.get(slug), summary())));
-  return respond(req, res, 404, page('404', () => renderNotFound(summary())));
+  if (PROVIDERS_BY_SLUG.has(slug)) return respond(req, res, 200, page(`detail:${slug}`, (s) => renderDetail(monitor.get(slug), s)));
+  return respond(req, res, 404, page('404', renderNotFound));
 }
 
 const server = createServer(
