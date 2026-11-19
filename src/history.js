@@ -76,17 +76,10 @@ export function quietTime(states, win, now) {
 
   let busy = 0;
   let longest = 0;
-  let longestEnd = null;
   let cursor = win.start;
-  const gap = (from, to) => {
-    if (to - from > longest) {
-      longest = to - from;
-      longestEnd = to;
-    }
-  };
-  for (const [start, end] of intervals) {
+  for (const [start, end] of [...intervals, [now, now]]) {
     if (start > cursor) {
-      gap(cursor, start);
+      longest = Math.max(longest, start - cursor);
       cursor = start;
     }
     if (end > cursor) {
@@ -94,10 +87,9 @@ export function quietTime(states, win, now) {
       cursor = end;
     }
   }
-  if (now > cursor) gap(cursor, now);
 
   const total = now - win.start;
-  return { fraction: total > 0 ? Math.max(0, 1 - busy / total) : 0, longestMs: longest, longestEnd };
+  return { fraction: total > 0 ? Math.max(0, 1 - busy / total) : 0, longestMs: longest };
 }
 
 export function startedWithin(states, now, ms) {

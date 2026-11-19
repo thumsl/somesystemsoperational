@@ -1,12 +1,9 @@
 export const STATUS_RANK = { operational: 0, maintenance: 0, degraded: 1, partial_outage: 2, major_outage: 3 };
 export const IMPACT_RANK = { none: 0, maintenance: 0, minor: 1, major: 2, critical: 3 };
 const RANK_TO_STATUS = ['operational', 'degraded', 'partial_outage', 'major_outage'];
-const RANK_TO_IMPACT = ['none', 'minor', 'major', 'critical'];
 
 export const impactToStatus = (impact) =>
   impact === 'maintenance' ? 'maintenance' : RANK_TO_STATUS[IMPACT_RANK[impact] ?? 0];
-export const statusToImpact = (status) =>
-  status === 'maintenance' ? 'maintenance' : RANK_TO_IMPACT[STATUS_RANK[status] ?? 0];
 
 export function worstStatus(statuses) {
   let rank = 0;

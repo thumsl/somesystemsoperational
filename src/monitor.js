@@ -13,7 +13,6 @@ const blank = (provider) => ({
   componentsTruncated: false,
   history: null,
   coverageStart: null,
-  checkedAt: null,
   okAt: null,
   failures: 0,
   error: null,
@@ -54,8 +53,7 @@ export class Monitor {
   apply(slug, result) {
     const state = this.states.get(slug);
     if (!state) return;
-    const now = this.ctx.now();
-    Object.assign(state, result, { checkedAt: now, okAt: now, failures: 0, error: null });
+    Object.assign(state, result, { okAt: this.ctx.now(), failures: 0, error: null });
     this.version++;
   }
 
@@ -65,15 +63,13 @@ export class Monitor {
 
   async pollCurrent(provider) {
     const state = this.states.get(provider.slug);
-    const adapter = ADAPTERS[provider.type];
     const now = this.ctx.now();
     try {
       const before = state.status;
-      const result = await adapter.current(provider, this.ctx);
-      Object.assign(state, result, { checkedAt: now, okAt: now, failures: 0, error: null });
+      const result = await ADAPTERS[provider.type].current(provider, this.ctx);
+      Object.assign(state, result, { okAt: now, failures: 0, error: null });
       if (before !== state.status && before !== 'pending' && before !== 'unknown') this.onChange?.(provider);
     } catch (err) {
-      state.checkedAt = now;
       state.failures += 1;
       state.error = String(err?.message || err).slice(0, 200);
       if (state.status === 'pending' || state.failures >= MAX_FAILURES) {
