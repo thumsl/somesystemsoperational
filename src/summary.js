@@ -65,6 +65,8 @@ export function buildSummary(states, now) {
     last24h: startedWithin(states, now, DAY),
     last30d: last30,
     perDay: last30 / 30,
-    checkedAt: states.reduce((max, s) => Math.max(max, s.okAt ?? 0), 0) || null,
+    self: states.find((s) => s.provider.self) ?? null,
+    // When the other status pages were last read; this site's own state is always fresh.
+    checkedAt: states.reduce((max, s) => (s.provider.self ? max : Math.max(max, s.okAt ?? 0)), 0) || null,
   };
 }

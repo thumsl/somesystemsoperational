@@ -32,8 +32,9 @@ async function pool(items, limit, worker) {
 
 /** Polls every provider on a loop and keeps the latest normalized state in memory. */
 export class Monitor {
-  constructor(providers, { ctx = { ...fetcher, now: () => Date.now() }, log = console } = {}) {
+  constructor(providers, { ctx = { ...fetcher, now: () => Date.now() }, log = console, onCycle = null } = {}) {
     this.providers = providers;
+    this.onCycle = onCycle;
     this.ctx = ctx;
     this.log = log;
     this.states = new Map(providers.map((p) => [p.slug, blank(p)]));
@@ -50,6 +51,15 @@ export class Monitor {
 
   all() {
     return [...this.states.values()];
+  }
+
+  /** Replace part of a provider's state right away, for state that is measured rather than polled. */
+  apply(slug, result) {
+    const state = this.states.get(slug);
+    if (!state) return;
+    const now = this.ctx.now();
+    Object.assign(state, result, { checkedAt: now, okAt: now, failures: 0, error: null });
+    this.version++;
   }
 
   /** True once every provider has been tried at least once. */
@@ -92,6 +102,11 @@ export class Monitor {
     const started = this.ctx.now();
     await pool(this.providers, CONCURRENCY, (p) => this.pollCurrent(p));
     this.cycles++;
+    this.onCycle?.({
+      total: this.providers.filter((p) => !p.self).length,
+      failed: this.all().filter((s) => s.failures > 0 && !s.provider.self).map((s) => s.provider.name),
+      durationMs: this.ctx.now() - started,
+    });
 
     const due = this.providers.filter((p) => ADAPTERS[p.type].slow && (this.slowDue.get(p.slug) ?? 0) <= started);
     for (const p of due) {

@@ -72,7 +72,8 @@ function bar(levels, win, data, label) {
   return `<svg class="bar" viewBox="0 0 ${levels.length * 5 - 1} 10" preserveAspectRatio="none" role="img" aria-label="${esc(label)}" data-l="${levels.map((l) => (l < 0 ? '-' : l)).join('')}" data-end="${end}"${attrs}>${paths}</svg>`;
 }
 
-function layout({ title, description, path, body, level }) {
+function layout({ title, description, path, body, level, summary }) {
+  const own = summary.self;
   const canonical = PUBLIC_URL ? `<link rel="canonical" href="${esc(PUBLIC_URL + path)}">` : '';
   return `<!doctype html>
 <html lang="en">
@@ -88,9 +89,9 @@ function layout({ title, description, path, body, level }) {
 <meta name="twitter:card" content="summary">
 <meta name="color-scheme" content="light dark">
 ${canonical}
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?s=${esc(level)}">
-<link rel="stylesheet" href="/assets/style.css?v=${ASSET_VERSION}">
-<script src="/assets/app.js?v=${ASSET_VERSION}" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon-${esc(level)}.svg">
+<link rel="stylesheet" href="/assets/${ASSET_VERSION}/style.css">
+<script src="/assets/${ASSET_VERSION}/app.js" defer></script>
 </head>
 <body>
 <div class="wrap">
@@ -98,13 +99,13 @@ ${canonical}
   <a class="brand" href="/">${LOGO}<span>${esc(BRAND)}</span></a>
   <div class="subscribe">
     <button type="button" class="btn" id="subscribe" aria-expanded="false" aria-controls="subscribe-pop">Subscribe<span class="wide"> to updates</span></button>
-    <div class="pop" id="subscribe-pop" hidden>${SUBSCRIBE_SLOT}</div>
+    <div class="pop" id="subscribe-pop" hidden>${subscribeText(summary)}</div>
   </div>
 </header>
 ${body}
 <footer class="foot">
   <p>${esc(BRAND)} is an unofficial aggregate of public status pages. Every status shown is reported by the provider itself, so the real situation may be worse. Not affiliated with any of the services listed.</p>
-  <p><a href="/">All services</a> · <a href="/api/v2/summary.json">API</a> · Status of this page: operational, presumably.</p>
+  <p><a href="/">All services</a> · <a href="/api/v2/summary.json">API</a> · Status of this page: <span id="live-self" data-live>${own ? `<a class="status s-${own.status}" href="/${esc(own.provider.slug)}">${STATUS_LABEL[own.status]}</a>` : 'unknown'}</span></p>
 </footer>
 </div>
 <div class="tip" id="tip" hidden></div>
@@ -115,7 +116,6 @@ ${body}
 // Filled in by the server once the assets are hashed, and per render for the popover.
 let ASSET_VERSION = 'dev';
 export const setAssetVersion = (v) => (ASSET_VERSION = v);
-const SUBSCRIBE_SLOT = '<!--subscribe-->';
 
 function subscribeText(summary) {
   const perDay = Math.round(summary.perDay);
@@ -216,7 +216,8 @@ export function renderHome(summary) {
     path: '/',
     level: headline.level,
     body,
-  }).replace(SUBSCRIBE_SLOT, subscribeText(summary));
+    summary,
+  });
 }
 
 function updatesList(incident) {
@@ -255,7 +256,7 @@ export function renderDetail(state, summary) {
   const win = historyWindow(now, HISTORY_DAYS);
   const days = providerDays(state, win, now);
   const level = BANNER_LEVEL[status];
-  const host = new URL(provider.page).host;
+  const host = provider.self ? 'this server, checking itself' : new URL(provider.page).host;
 
   const fallback = {
     operational: 'No issues reported.',
@@ -287,11 +288,14 @@ export function renderDetail(state, summary) {
 
   const history = state.history
     ? `<div class="panel">
-    <div class="panel-head"><strong>${plural(inWindow, 'incident')}</strong><span class="muted">${partial ? `since ${esc(fmtUtc(state.coverageStart).replace(/,? \d\d:\d\d UTC$/, ''))}, as far back as this provider's feed goes` : `in the last ${win.days} days`}</span></div>
+    <div class="panel-head"><strong>${plural(inWindow, 'incident')}</strong><span class="muted">${partial ? `since ${esc(fmtUtc(state.coverageStart).replace(/,? \d\d:\d\d UTC$/, ''))}, ${provider.self ? 'when this site started keeping its own record' : "as far back as this provider's feed goes"}` : `in the last ${win.days} days`}</span></div>
     ${bar(days.levels, win, { c: days.counts }, `${provider.name}: incident history for the last ${win.days} days`)}
     <div class="axis"><span>${win.days} days ago</span><i></i><span>Today</span></div>
   </div>`
     : `<p class="empty">${esc(provider.name)} does not publish its incident history in a form we can read, so only current status is shown.</p>`;
+  const selfNote = provider.self
+    ? `<p class="note">This is the one status on the site we measure ourselves: whether the server can read the other ${summary.total - 1} status pages, how fresh that data is, how quickly it answers and how much traffic it is turning away. Incidents here open and close automatically.</p>`
+    : '';
 
   const pastList = past.length
     ? `<section class="block"><h2>Past incidents <span class="count">${past.length}</span></h2><div class="panel flush">${past
@@ -307,10 +311,11 @@ export function renderDetail(state, summary) {
 <a class="back" href="/">← All services</a>
 <div class="detail-head">
   <div><h1>${esc(provider.name)}</h1><p class="muted">${esc(CATEGORY_NAME.get(provider.category) ?? '')}</p></div>
-  <a class="btn" href="${esc(provider.page)}" target="_blank" rel="noopener">Official status page ↗</a>
+  ${provider.self ? '<span class="btn is-static">You are looking at it</span>' : `<a class="btn" href="${esc(provider.page)}" target="_blank" rel="noopener">Official status page ↗</a>`}
 </div>
 <div id="live-detail" data-live>
 <div class="banner b-${level}">${icon(level)}<div><h2>${STATUS_LABEL[status]}</h2><p>${esc(state.description && state.description.toLowerCase() !== STATUS_LABEL[status].toLowerCase() ? state.description : fallback)}</p></div></div>
+${selfNote}
 <p class="meta">Source: ${esc(host)}${state.okAt ? ` · last checked ${time(new Date(state.okAt).toISOString())}` : ''}</p>
 ${active}
 <section class="block"><h2>History</h2>${history}</section>
@@ -321,16 +326,17 @@ ${pastList}
 
   return layout({
     title: `${provider.name} status — ${BRAND}`,
-    description: `${provider.name} is currently: ${STATUS_LABEL[status]}. Live status, active incidents and ${win.days}-day history, straight from ${host}.`,
+    description: `${provider.name} is currently: ${STATUS_LABEL[status]}. Live status, active incidents and ${win.days}-day history, ${provider.self ? 'measured by the site itself' : `straight from ${host}`}.`,
     path: `/${provider.slug}`,
     level,
     body,
-  }).replace(SUBSCRIBE_SLOT, subscribeText(summary));
+    summary,
+  });
 }
 
 export function renderNotFound(summary) {
   const body = `<main><div class="banner b-pending">${icon('bad')}<div><h1>404 — Page Not Found</h1><p>For once, this outage is ours. There is no such page.</p></div></div><p class="meta"><a href="/">← Back to the internet</a></p></main>`;
-  return layout({ title: `Not found — ${BRAND}`, description: 'Page not found.', path: '/', level: 'pending', body }).replace(SUBSCRIBE_SLOT, subscribeText(summary));
+  return layout({ title: `Not found — ${BRAND}`, description: 'Page not found.', path: '/', level: 'pending', body, summary });
 }
 
 const FAVICON_COLOR = { ok: '#22a565', warn: '#e5a50a', partial: '#e8590c', bad: '#d92d20', maint: '#2f80ed', pending: '#98a2b3' };

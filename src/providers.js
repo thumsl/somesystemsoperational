@@ -5,6 +5,7 @@
  * that knows how to read it (see src/adapters). Names and categories are ours; everything
  * else shown on the site comes from the provider.
  */
+import { BRAND, PUBLIC_URL, SELF_SLUG } from './config.js';
 
 export const CATEGORIES = [
   ['cloud', 'Cloud & Infrastructure'],
@@ -161,6 +162,8 @@ sp('segment', 'Segment', 'data', 'https://status.segment.com');
 sp('mixpanel', 'Mixpanel', 'data', 'https://www.mixpanelstatus.com');
 
 // ── Monitoring & Incident Response ──────────────────────────────────────────────────────
+// This site, measured by itself (src/self.js). Listed first: it is the one we can vouch for.
+custom('self', SELF_SLUG, BRAND, 'observability', PUBLIC_URL || 'https://localhost', { self: true, tier1: true });
 sp('sentry', 'Sentry', 'observability', 'https://status.sentry.io');
 sp('new-relic', 'New Relic', 'observability', 'https://status.newrelic.com');
 sp('grafana', 'Grafana Cloud', 'observability', 'https://status.grafana.com');

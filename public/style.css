@@ -72,6 +72,8 @@ h1, h2, h3, p { margin: 0; }
   text-decoration: none; white-space: nowrap; cursor: pointer;
 }
 .btn:hover { background: var(--soft); }
+.btn.is-static { color: var(--muted); cursor: default; }
+.btn.is-static:hover { background: var(--panel); }
 .btn:focus-visible, .row:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--maint); outline-offset: 2px; }
 
 .subscribe { position: relative; }
@@ -97,6 +99,9 @@ h1, h2, h3, p { margin: 0; }
 
 .meta { margin: 10px 2px 0; font-size: 13px; color: var(--muted); }
 .meta a { color: var(--muted); }
+.note { margin: 12px 2px 0; font-size: 14px; color: var(--muted); }
+.foot .status { font-weight: 600; text-decoration: none; }
+.foot .status:hover { text-decoration: underline; }
 
 /* Stats */
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 22px; }
