@@ -2,6 +2,7 @@ export const STATUS_RANK = { operational: 0, maintenance: 0, degraded: 1, partia
 export const IMPACT_RANK = { none: 0, maintenance: 0, minor: 1, major: 2, critical: 3 };
 const RANK_TO_STATUS = ['operational', 'degraded', 'partial_outage', 'major_outage'];
 
+export const isImpact = (value) => Object.hasOwn(IMPACT_RANK, value);
 export const impactToStatus = (impact) =>
   impact === 'maintenance' ? 'maintenance' : RANK_TO_STATUS[IMPACT_RANK[impact] ?? 0];
 
@@ -76,7 +77,7 @@ export function incident({ id, name, impact, status, startedAt, resolvedAt = nul
   return {
     id: String(id ?? `${name}:${startedAt}`),
     name: clip(plainText(name) || 'Incident', 220),
-    impact: impact in IMPACT_RANK ? impact : 'minor',
+    impact: isImpact(impact) ? impact : 'minor',
     status: clip(humanize(status), 40),
     startedAt: toIso(startedAt),
     resolvedAt: toIso(resolvedAt),
@@ -94,7 +95,7 @@ const MAX_COMPONENTS = 60;
 export function components(all) {
   const clean = all
     .filter((c) => c && c.name)
-    .map((c) => ({ name: clip(plainText(c.name), 120), status: c.status in STATUS_RANK ? c.status : 'operational', group: c.group ? clip(plainText(c.group), 120) : null }));
+    .map((c) => ({ name: clip(plainText(c.name), 120), status: Object.hasOwn(STATUS_RANK, c.status) ? c.status : 'operational', group: c.group ? clip(plainText(c.group), 120) : null }));
   const issues = clean.filter((c) => c.status !== 'operational');
   const truncated = clean.length > MAX_COMPONENTS;
   return {
