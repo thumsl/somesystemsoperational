@@ -24,8 +24,8 @@ export function plainText(input) {
   return String(input)
     .replace(/<\s*(br|\/p|\/div|\/li|\/h[1-6])\s*\/?>/gi, '\n')
     .replace(/<[^>]*>/g, '')
-    .replace(/&#(\d+);/g, (_, n) => safeCodePoint(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, n) => safeCodePoint(parseInt(n, 16)))
+    .replace(/&#(\d+);/g, (_, n) => codePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => codePoint(parseInt(n, 16)))
     .replace(/&([a-z]+);/gi, (m, name) => ENTITIES[name.toLowerCase()] ?? m)
     .replace(/[ \t ]+/g, ' ')
     .replace(/ ?\n ?/g, '\n')
@@ -33,13 +33,7 @@ export function plainText(input) {
     .trim();
 }
 
-function safeCodePoint(n) {
-  try {
-    return n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '';
-  } catch {
-    return '';
-  }
-}
+const codePoint = (n) => (n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '');
 
 export function clip(text, max) {
   const s = String(text ?? '');

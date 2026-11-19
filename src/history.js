@@ -40,27 +40,17 @@ export function providerDays(state, win, now) {
 }
 
 export function internetDays(perProvider, win) {
-  const levels = [];
-  const incidents = [];
-  const affected = [];
-  const covered = [];
+  const out = { levels: [], incidents: [], affected: [], covered: [] };
   for (let d = 0; d < win.days; d++) {
-    let inc = 0;
-    let aff = 0;
-    let cov = 0;
-    for (const { levels: l, counts: c } of perProvider) {
-      if (l[d] < 0) continue;
-      cov++;
-      if (l[d] > 0) aff++;
-      inc += c[d];
-    }
-    const share = cov ? aff / cov : 0;
-    levels.push(cov === 0 ? -1 : aff === 0 ? 0 : share <= 0.08 ? 1 : share <= 0.16 ? 2 : 3);
-    incidents.push(inc);
-    affected.push(aff);
-    covered.push(cov);
+    const known = perProvider.filter((p) => p.levels[d] >= 0);
+    const affected = known.filter((p) => p.levels[d] > 0).length;
+    const share = affected / known.length;
+    out.levels.push(!known.length ? -1 : !affected ? 0 : share <= 0.08 ? 1 : share <= 0.16 ? 2 : 3);
+    out.incidents.push(known.reduce((n, p) => n + p.counts[d], 0));
+    out.affected.push(affected);
+    out.covered.push(known.length);
   }
-  return { levels, incidents, affected, covered };
+  return out;
 }
 
 export function quietTime(states, win, now) {
@@ -92,13 +82,5 @@ export function quietTime(states, win, now) {
   return { fraction: total > 0 ? Math.max(0, 1 - busy / total) : 0, longestMs: longest };
 }
 
-export function startedWithin(states, now, ms) {
-  let n = 0;
-  for (const state of states) {
-    for (const incident of impactfulIncidents(state)) {
-      const start = Date.parse(incident.startedAt);
-      if (start <= now && now - start <= ms) n++;
-    }
-  }
-  return n;
-}
+export const startedWithin = (states, now, ms) =>
+  states.flatMap(impactfulIncidents).filter((i) => Date.parse(i.startedAt) <= now && now - Date.parse(i.startedAt) <= ms).length;
