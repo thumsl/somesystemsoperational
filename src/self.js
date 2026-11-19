@@ -1,8 +1,8 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { DAY } from './history.js';
 import { components, impactToStatus, worstStatus } from './normalize.js';
 
-const DAY = 86_400_000;
 const KEEP_MS = 100 * DAY;
 const DOWN_GAP_MS = 120_000;
 const TRAFFIC_WINDOW_MS = 60_000;
@@ -219,7 +219,7 @@ export class SelfMonitor {
     const now = this.now();
     const open = this.incidents.filter((i) => !i.resolvedAt);
     const levels = this.levels || {};
-    const status = (name) => ['operational', 'degraded', 'partial_outage', 'major_outage'][levels[name] ?? 0];
+    const status = (name) => impactToStatus(IMPACT[levels[name] ?? 0]);
     const c = this.cycle;
     const { served } = this.trafficInWindow();
     const facts = [

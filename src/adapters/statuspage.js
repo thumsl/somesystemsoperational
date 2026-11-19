@@ -1,6 +1,5 @@
-import { components, incident, impactToStatus, worstStatus, clip, plainText } from '../normalize.js';
+import { clip, components, earliest, impactToStatus, incident, isImpact, plainText, worstStatus } from '../normalize.js';
 
-const INDICATOR = { none: 'operational', minor: 'degraded', major: 'partial_outage', critical: 'major_outage', maintenance: 'maintenance' };
 const COMPONENT = {
   operational: 'operational',
   degraded_performance: 'degraded',
@@ -10,14 +9,13 @@ const COMPONENT = {
   under_maintenance: 'maintenance',
 };
 const CLOSED = new Set(['resolved', 'postmortem', 'completed']);
-const IMPACTS = new Set(['none', 'minor', 'major', 'critical', 'maintenance']);
 
 function toIncident(raw, pageUrl, impactOverride) {
   const closed = CLOSED.has(raw.status);
   return incident({
     id: raw.id,
     name: raw.name,
-    impact: impactOverride ?? (IMPACTS.has(raw.impact) ? raw.impact : 'minor'),
+    impact: impactOverride ?? raw.impact,
     status: raw.status,
     startedAt: raw.started_at || raw.created_at,
     resolvedAt: raw.resolved_at || (closed ? raw.updated_at : null),
@@ -41,12 +39,8 @@ export function parseSummary(json, pageUrl) {
     .map((m) => toIncident(m, pageUrl, 'maintenance'));
 
   const indicator = json.status?.indicator;
-  const status =
-    INDICATOR[indicator] ??
-    worstStatus([...leaves.map((c) => c.status), ...incidents.map((i) => impactToStatus(i.impact))]);
-
   return {
-    status,
+    status: isImpact(indicator) ? impactToStatus(indicator) : worstStatus([...leaves.map((c) => c.status), ...incidents.map((i) => impactToStatus(i.impact))]),
     description: clip(plainText(json.status?.description), 160),
     incidents: [...incidents, ...maintenances],
     ...components(leaves),
@@ -58,8 +52,7 @@ export function parseIncidents(json, pageUrl) {
   if (!list) throw new Error('not a Statuspage incident list');
   const history = list.map((i) => toIncident(i, pageUrl)).filter((i) => i.startedAt);
   const fullPage = list.length === 25 || list.length >= 50;
-  const oldest = history.reduce((min, i) => (i.startedAt < min ? i.startedAt : min), history[0]?.startedAt ?? null);
-  return { history, coverageStart: fullPage ? oldest : null };
+  return { history, coverageStart: fullPage ? earliest(history) : null };
 }
 
 export default {

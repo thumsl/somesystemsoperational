@@ -1,4 +1,4 @@
-import { components, incident, impactToStatus, worstStatus, clip, plainText } from '../normalize.js';
+import { clip, components, earliest, impactToStatus, incident, isImpact, plainText, worstStatus } from '../normalize.js';
 
 export function parseAzure(xml) {
   if (!/<rss[\s>]/i.test(xml)) throw new Error('not an RSS feed');
@@ -84,13 +84,12 @@ export function parseApple(text, pageUrl) {
       updates: [{ at: e.epochEndDate || e.epochStartDate, status: e.usersAffected, body: e.message }],
     }),
   );
-  const oldest = history.reduce((min, i) => (i.startedAt && i.startedAt < min ? i.startedAt : min), new Date().toISOString());
   return {
     status: worstStatus(services.map((s) => s.status)),
     description: '',
     incidents: history.filter((i) => !i.resolvedAt),
     history,
-    coverageStart: oldest,
+    coverageStart: earliest(history) ?? new Date().toISOString(),
     ...components(services),
   };
 }
@@ -122,8 +121,7 @@ export function parseSlackCurrent(json) {
 export function parseSlackHistory(json) {
   if (!Array.isArray(json)) throw new Error('not a Slack history list');
   const history = json.map(slackIncident).filter((i) => i.startedAt);
-  const oldest = history.reduce((min, i) => (i.startedAt < min ? i.startedAt : min), history[0]?.startedAt ?? null);
-  return { history, coverageStart: oldest };
+  return { history, coverageStart: earliest(history) };
 }
 
 const HEROKU = { green: 'operational', yellow: 'degraded', red: 'major_outage', blue: 'maintenance' };
@@ -176,12 +174,10 @@ export function parseStatusio(json, pageUrl) {
   return { status, description: clip(plainText(result.status_overall.status), 160), incidents, ...components(list) };
 }
 
-const INDICATOR = { none: 'operational', minor: 'degraded', major: 'partial_outage', critical: 'major_outage', maintenance: 'maintenance' };
-
 export function parseOci(json) {
   const indicator = json?.status?.indicator;
-  if (!(indicator in INDICATOR)) throw new Error('not an OCI status document');
-  return { status: INDICATOR[indicator], description: clip(plainText(json.status.description), 160), incidents: [] };
+  if (!isImpact(indicator)) throw new Error('not an OCI status document');
+  return { status: impactToStatus(indicator), description: clip(plainText(json.status.description), 160), incidents: [] };
 }
 
 export function parseFastly(json) {

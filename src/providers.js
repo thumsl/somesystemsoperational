@@ -22,8 +22,7 @@ const add = (type) => (slug, name, category, base, extra = {}) =>
 const sp = add('statuspage');
 const is = add('instatus');
 const bs = add('betterstack');
-const custom = (type, slug, name, category, page, extra = {}) =>
-  list.push({ slug, name, category, type, base: page, page, ...extra });
+const custom = (type, ...rest) => add(type)(...rest);
 
 const T1 = { tier1: true };
 

@@ -90,6 +90,8 @@ export function incident({ id, name, impact, status, startedAt, resolvedAt = nul
   };
 }
 
+export const earliest = (incidents) => incidents.map((i) => i.startedAt).filter(Boolean).sort()[0] ?? null;
+
 const MAX_COMPONENTS = 60;
 
 export function components(all) {

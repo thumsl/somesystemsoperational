@@ -1,4 +1,4 @@
-import { components, incident, worstStatus } from '../normalize.js';
+import { components, earliest, incident, worstStatus } from '../normalize.js';
 
 const STATE = { operational: 'operational', degraded: 'degraded', downtime: 'major_outage', maintenance: 'maintenance' };
 const IMPACT = { degraded: 'minor', downtime: 'major', maintenance: 'maintenance' };
@@ -52,13 +52,12 @@ export function parseIndex(json, pageUrl, now = Date.now()) {
   let status = STATE[page.aggregate_state] ?? worstStatus(resources.map((r) => r.status));
   if (status === 'major_outage' && !allDown) status = 'partial_outage';
 
-  const oldest = history.reduce((min, i) => (i.startedAt < min ? i.startedAt : min), history[0]?.startedAt ?? null);
   return {
     status,
     description: '',
     incidents,
     history,
-    coverageStart: oldest ?? new Date(now).toISOString(),
+    coverageStart: earliest(history) ?? new Date(now).toISOString(),
     ...components(resources),
   };
 }
