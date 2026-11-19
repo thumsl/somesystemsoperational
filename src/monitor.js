@@ -29,9 +29,10 @@ async function pool(items, limit, worker) {
 }
 
 export class Monitor {
-  constructor(providers, { ctx = { ...fetcher, now: () => Date.now() }, log = console, onCycle = null } = {}) {
+  constructor(providers, { ctx = { ...fetcher, now: () => Date.now() }, log = console, onCycle = null, onChange = null } = {}) {
     this.providers = providers;
     this.onCycle = onCycle;
+    this.onChange = onChange;
     this.ctx = ctx;
     this.log = log;
     this.states = new Map(providers.map((p) => [p.slug, blank(p)]));
@@ -67,8 +68,10 @@ export class Monitor {
     const adapter = ADAPTERS[provider.type];
     const now = this.ctx.now();
     try {
+      const before = state.status;
       const result = await adapter.current(provider, this.ctx);
       Object.assign(state, result, { checkedAt: now, okAt: now, failures: 0, error: null });
+      if (before !== state.status && before !== 'pending' && before !== 'unknown') this.onChange?.(provider);
     } catch (err) {
       state.checkedAt = now;
       state.failures += 1;

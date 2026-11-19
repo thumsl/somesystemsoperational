@@ -22,6 +22,7 @@ rebuilt from the providers' own feeds within a minute of starting.
 | `PUBLIC_URL` | (none) | Public origin, used for canonical links and in the bot user agent |
 | `UMAMI_SCRIPT` | (none) | URL of an Umami `script.js`. Analytics stay off unless this and the id are set |
 | `UMAMI_WEBSITE_ID` | (none) | Website id from Umami |
+| `INDEXNOW_KEY` | (none) | Hex key for IndexNow. When set, search engines are told which pages changed whenever a status flips |
 | `GOOGLE_SITE_VERIFICATION` | (none) | Token for the Search Console verification meta tag |
 | `DONATE_BTC`, `DONATE_ETH` | the author's | Donation addresses in the footer. Set to an empty string to hide one |
 | `BRAND_NAME` | `Some Systems Operational` | Site name |

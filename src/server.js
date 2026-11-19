@@ -3,11 +3,12 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { brotliCompressSync, constants as zlib, gzipSync } from 'node:zlib';
-import { BRAND, CLIENT_IP_HEADER, DATA_DIR, POLL_INTERVAL_MS, PORT, PUBLIC_URL, RATE_LIMIT_BURST, RATE_LIMIT_PER_SEC, SELF_SLUG, UMAMI_SCRIPT } from './config.js';
+import { BRAND, CLIENT_IP_HEADER, DATA_DIR, INDEXNOW_KEY, POLL_INTERVAL_MS, PORT, PUBLIC_URL, RATE_LIMIT_BURST, RATE_LIMIT_PER_SEC, SELF_SLUG, UMAMI_SCRIPT } from './config.js';
 import { feed, llms, sitemap } from './feeds.js';
 import * as fetcher from './fetcher.js';
+import { changed } from './indexnow.js';
 import { Monitor } from './monitor.js';
-import { CATEGORIES, PROVIDERS, PROVIDERS_BY_SLUG } from './providers.js';
+import { CATEGORIES, CATEGORY_SLUG, PROVIDERS, PROVIDERS_BY_SLUG } from './providers.js';
 import { bucketKey, clientIp, isLoopback, RateLimiter } from './ratelimit.js';
 import { renderCategory, renderDetail, renderFavicon, renderHome, renderNotFound, setAssetVersion } from './render.js';
 import { SelfMonitor } from './self.js';
@@ -78,6 +79,7 @@ const STATIC = new Map([
   ['/og.png', pack('image/png', file('og.png'), 'public, max-age=86400')],
   ['/robots.txt', pack('text/plain; charset=utf-8', `User-agent: *\nAllow: /\n${PUBLIC_URL ? `\nSitemap: ${PUBLIC_URL}/sitemap.xml\n` : ''}`, 'public, max-age=86400')],
 ]);
+if (INDEXNOW_KEY) STATIC.set(`/${INDEXNOW_KEY}.txt`, pack('text/plain; charset=utf-8', INDEXNOW_KEY, 'public, max-age=86400'));
 for (const level of ['ok', 'warn', 'partial', 'bad', 'maint', 'pending']) {
   STATIC.set(`/favicon-${level}.svg`, pack('image/svg+xml', renderFavicon(level), 'public, max-age=604800'));
 }
@@ -86,6 +88,7 @@ const self = new SelfMonitor({ file: DATA_DIR ? `${DATA_DIR.replace(/\/+$/, '')}
 const monitor = new Monitor(PROVIDERS, {
   ctx: { ...fetcher, now: () => Date.now(), self: () => self.snapshot() },
   onCycle: (cycle) => self.recordCycle(cycle),
+  onChange: (provider) => changed('/', `/${provider.slug}`, `/status/${CATEGORY_SLUG.get(provider.category)}`),
 });
 const limiter = new RateLimiter({ capacity: RATE_LIMIT_BURST, refillPerSec: RATE_LIMIT_PER_SEC });
 
