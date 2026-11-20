@@ -1,6 +1,6 @@
 import { HISTORY_DAYS } from './config.js';
 import { CATEGORIES, CATEGORY_SLUG } from './providers.js';
-import { IMPACT_RANK, STATUS_RANK } from './normalize.js';
+import { STATUS_RANK } from './normalize.js';
 import { DAY, historyWindow, internetDays, providerDays, quietTime, startedWithin } from './history.js';
 
 const isAffected = (status) => STATUS_RANK[status] > 0;
@@ -31,11 +31,7 @@ export function buildSummary(states, now) {
 
   const incidents = states
     .flatMap((state) => state.incidents.filter((i) => i.impact !== 'maintenance').map((incident) => ({ state, incident })))
-    .sort(
-      (a, b) =>
-        IMPACT_RANK[b.incident.impact] - IMPACT_RANK[a.incident.impact] ||
-        String(b.incident.startedAt).localeCompare(String(a.incident.startedAt)),
-    );
+    .sort((a, b) => (b.incident.startedAt ?? '').localeCompare(a.incident.startedAt ?? ''));
 
   const categories = CATEGORIES.map(([key, name]) => {
     const list = rows
